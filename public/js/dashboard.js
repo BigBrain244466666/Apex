@@ -10,7 +10,6 @@ const DEFAULT_PROFILE = {
   carb_target: 220
 };
 
-// Seeded breakfast — split into real items that total 1,048 kcal.
 const SEED_BREAKFAST_ITEMS = [
   { food_name: '5 large eggs', calories: 360, protein: 31, fat: 25, carbs: 1 },
   { food_name: '88g pork sausage', calories: 310, protein: 15, fat: 27, carbs: 1 },
@@ -28,8 +27,18 @@ const MACRO_STYLES = [
 
 const Dashboard = {
   profile: null,
+  profilePromise: null,
 
-  async ensureProfile(userId) {
+  ensureProfile(userId) {
+    // Cache the in-flight promise so concurrent calls don't double-seed.
+    if (this.profile) return Promise.resolve(this.profile);
+    if (this.profilePromise) return this.profilePromise;
+
+    this.profilePromise = this._doEnsureProfile(userId);
+    return this.profilePromise;
+  },
+
+  async _doEnsureProfile(userId) {
     const sb = getSupabase();
     const { data } = await sb.from('profiles').select('*').eq('user_id', userId).maybeSingle();
     if (data) {
@@ -37,7 +46,6 @@ const Dashboard = {
       return data;
     }
 
-    // First run: create default profile + seed the breakfast meal.
     const profileRow = { user_id: userId, ...DEFAULT_PROFILE };
     await sb.from('profiles').insert(profileRow);
 

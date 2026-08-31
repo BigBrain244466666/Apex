@@ -30,6 +30,8 @@ const Vitals = {
         .select().single();
 
       if (error) return alert(error.message);
+
+      // Only update local state if this row isn't already present (upsert).
       this.rows = this.rows.filter((r) => r.log_date !== log_date);
       this.rows.push(data);
       this.rows.sort((a, b) => a.log_date.localeCompare(b.log_date));
@@ -39,7 +41,7 @@ const Vitals = {
     });
   },
 
-  async load(userId) {
+  async load(userId, token) {
     const sb = getSupabase();
     const { data, error } = await sb.from('vitals')
       .select('*')
@@ -48,6 +50,9 @@ const Vitals = {
       .limit(60);
 
     if (error) return console.error(error.message);
+
+    if (token !== App.loadToken) return; // stale load — discard
+
     this.rows = (data || []).sort((a, b) => a.log_date.localeCompare(b.log_date));
     this.renderTable();
   },

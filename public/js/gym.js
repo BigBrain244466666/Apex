@@ -1,14 +1,7 @@
-/**
- * Gym module: workout logger + trends.
- * Workouts → Exercises → Sets (weight × reps).
- * Trends: pick an exercise, see progression over time (best e1RM, volume).
- */
-
 const Gym = {
   workouts: [],
   bound: false,
 
-  // Epley estimated 1RM
   e1rm(weight, reps) {
     const w = Number(weight) || 0;
     const r = Number(reps) || 0;
@@ -20,18 +13,16 @@ const Gym = {
     if (this.bound) return;
     this.bound = true;
 
-    // ---- New workout ----
     document.getElementById('new-workout-btn').addEventListener('click', () => {
       this.createWorkout();
     });
 
-    // ---- Trends: exercise selector ----
     document.getElementById('trend-exercise-select').addEventListener('change', (e) => {
       this.renderTrends(e.target.value);
     });
   },
 
-  async load(userId) {
+  async load(userId, token) {
     const sb = getSupabase();
 
     const { data: workouts, error } = await sb.from('workouts')
@@ -42,7 +33,8 @@ const Gym = {
 
     if (error) return console.error(error.message);
 
-    this.workouts = [];
+    // Build fresh array locally.
+    const freshWorkouts = [];
     for (const w of workouts || []) {
       const { data: exercises } = await sb.from('workout_exercises')
         .select('id, exercise_name')
@@ -58,14 +50,15 @@ const Gym = {
         exList.push({ id: ex.id, exercise_name: ex.exercise_name, sets: sets || [] });
       }
 
-      this.workouts.push({ id: w.id, workout_date: w.workout_date, notes: w.notes, exercises: exList });
+      freshWorkouts.push({ id: w.id, workout_date: w.workout_date, notes: w.notes, exercises: exList });
     }
 
+    if (token !== App.loadToken) return; // stale load — discard
+
+    this.workouts = freshWorkouts;
     this.renderWorkouts();
     this.populateTrendSelector();
   },
-
-  // ================= WORKOUTS =================
 
   async createWorkout() {
     const dateInput = document.getElementById('new-workout-date');
@@ -89,7 +82,7 @@ const Gym = {
   async deleteWorkout(id) {
     if (!confirm('Delete this workout and all its exercises?')) return;
     const sb = getSupabase();
-    await sb.from('workouts').delete().eq('id', id); // cascades to exercises + sets
+    await sb.from('workouts').delete().eq('id', id);
     this.workouts = this.workouts.filter((w) => w.id !== id);
     this.renderWorkouts();
     this.populateTrendSelector();
@@ -121,7 +114,7 @@ const Gym = {
 
   async deleteExercise(exerciseId) {
     const sb = getSupabase();
-    await sb.from('workout_exercises').delete().eq('id', exerciseId); // cascades to sets
+    await sb.from('workout_exercises').delete().eq('id', exerciseId);
     for (const w of this.workouts) {
       w.exercises = w.exercises.filter((ex) => ex.id !== exerciseId);
     }
@@ -140,7 +133,6 @@ const Gym = {
     const sb = getSupabase();
     const userId = (await sb.auth.getUser()).data.user.id;
 
-    // next set number = max existing + 1
     let nextSet = 1;
     for (const w of this.workouts) {
       const ex = w.exercises.find((e) => e.id === exerciseId);
@@ -200,7 +192,6 @@ const Gym = {
       return;
     }
 
-    // Sort by date desc
     const sorted = [...this.workouts].sort((a, b) => b.workout_date.localeCompare(a.workout_date));
 
     for (const workout of sorted) {
@@ -275,8 +266,6 @@ const Gym = {
     }
   },
 
-  // ================= TRENDS =================
-
   uniqueExerciseNames() {
     const set = new Set();
     for (const w of this.workouts) {
@@ -307,8 +296,7 @@ const Gym = {
       return;
     }
 
-    // Collect all sets for this exercise across workouts, grouped by date.
-    const byDate = new Map(); // date -> { sets: [], bestE1rm: 0, volume: 0 }
+    const byDate = new Map();
 
     for (const w of this.workouts) {
       for (const ex of w.exercises) {
@@ -335,7 +323,6 @@ const Gym = {
       return;
     }
 
-    // Chart data (chronological order)
     const chrono = [...dates].reverse();
     const chartData = chrono.map((d) => ({ label: d.date, value: d.bestE1rm }));
 
@@ -395,9 +382,3 @@ const Gym = {
     `;
   }
 };
-
-function escapeHtml(str) {
-  return String(str).replace(/[&<>"']/g, (c) => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-  }[c]));
-}

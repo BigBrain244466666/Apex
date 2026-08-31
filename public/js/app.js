@@ -3,6 +3,7 @@ const App = {
   authBound: false,
   appBound: false,
   userId: null,
+  loadToken: 0, // increments on every load; stale loads get discarded
 
   async boot() {
     await loadAppConfig();
@@ -81,17 +82,14 @@ const App = {
         await Auth.signOut();
       });
 
-      // Page navigation
       document.getElementById('nav-dashboard').addEventListener('click', () => this.showPage('dashboard'));
       document.getElementById('nav-gym').addEventListener('click', () => this.showPage('gym'));
 
-      // Bind all modules
       MealLog.bindUI();
       Vitals.bindForm();
       Gym.bindUI();
     }
 
-    // Load data for both pages (fresh on every auth state change).
     this.loadDashboardData();
   },
 
@@ -115,14 +113,22 @@ const App = {
   },
 
   async loadDashboardData() {
+    // Token: if another load starts while this one is in flight,
+    // this one gets stale and must NOT write its results.
+    const token = ++this.loadToken;
+
     await Dashboard.ensureProfile(this.userId);
+
     await Promise.all([
-      MealLog.load(this.userId),
-      Vitals.load(this.userId),
-      Gym.load(this.userId),
+      MealLog.load(this.userId, token),
+      Vitals.load(this.userId, token),
+      Gym.load(this.userId, token),
       HuaweiCard.refresh()
     ]);
-    this.refreshMacros();
+
+    if (token === this.loadToken) {
+      this.refreshMacros();
+    }
   },
 
   setTotals(totals) {
@@ -133,5 +139,14 @@ const App = {
     Dashboard.renderMacroBars(MealLog.getTotals());
   }
 };
+
+// ============ PWA service worker registration ============
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch((err) => {
+      console.warn('Service worker registration failed:', err);
+    });
+  });
+}
 
 document.addEventListener('DOMContentLoaded', () => App.boot());

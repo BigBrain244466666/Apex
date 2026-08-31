@@ -1,11 +1,7 @@
-/**
- * Meal manager: create meals (breakfast/lunch/dinner/snack), add foods to
- * each meal, food search with serving-size scaling, delete, and daily totals.
- */
 const MealLog = {
-  meals: [],            // [{ id, meal_type, items: [{...}] }]
+  meals: [],
   bound: false,
-  currentMealId: null,  // which meal the food modal is adding to
+  currentMealId: null,
   selectedFood: null,
   debounceTimer: null,
   MEAL_TYPES: ['breakfast', 'lunch', 'dinner', 'snack'],
@@ -15,22 +11,18 @@ const MealLog = {
     if (this.bound) return;
     this.bound = true;
 
-    // ---- Add Meal button → open meal type modal ----
     document.getElementById('add-meal-btn').addEventListener('click', () => {
       this.openModal('meal-type-modal');
     });
 
-    // ---- Meal type buttons → create meal ----
     document.querySelectorAll('.meal-type-btn').forEach((btn) => {
       btn.addEventListener('click', () => this.createMeal(btn.dataset.type));
     });
 
-    // ---- Modal close (backdrop + ✕ buttons) ----
     document.querySelectorAll('[data-close-modal]').forEach((el) => {
       el.addEventListener('click', () => this.closeModal(el.dataset.closeModal));
     });
 
-    // ---- Food modal: live search ----
     const searchInput = document.getElementById('food-search');
     const resultsEl = document.getElementById('food-results');
     const servingInput = document.getElementById('food-serving');
@@ -57,7 +49,6 @@ const MealLog = {
       if (grams > 0) this.applyServing(grams);
     });
 
-    // If user edits the food name manually, detach the selected food link.
     searchInput.addEventListener('change', () => {
       if (this.selectedFood && searchInput.value !== this.selectedFood.name) {
         this.selectedFood = null;
@@ -66,7 +57,6 @@ const MealLog = {
       }
     });
 
-    // ---- Food form submit → add to current meal ----
     document.getElementById('food-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const food_name = searchInput.value.trim();
@@ -94,7 +84,6 @@ const MealLog = {
 
       if (error) return alert(error.message);
 
-      // Push into the in-memory meal's items.
       const meal = this.meals.find((m) => m.id === this.currentMealId);
       if (meal) meal.items.push(data);
 
@@ -105,8 +94,6 @@ const MealLog = {
       App.refreshMacros();
     });
   },
-
-  // ================= MEALS =================
 
   openModal(id) {
     document.getElementById(id).classList.remove('hidden');
@@ -137,7 +124,7 @@ const MealLog = {
 
   async deleteMeal(mealId) {
     const sb = getSupabase();
-    await sb.from('meals').delete().eq('id', mealId); // cascades to items
+    await sb.from('meals').delete().eq('id', mealId);
     this.meals = this.meals.filter((m) => m.id !== mealId);
     this.renderMeals();
     this.updateTotals();
@@ -150,8 +137,6 @@ const MealLog = {
       return diff !== 0 ? diff : String(a.id).localeCompare(String(b.id));
     });
   },
-
-  // ================= FOOD MODAL =================
 
   openFoodModal(mealId) {
     this.currentMealId = mealId;
@@ -262,9 +247,7 @@ const MealLog = {
     }
   },
 
-  // ================= RENDER =================
-
-  async load(userId) {
+  async load(userId, token) {
     const sb = getSupabase();
     const today = new Date().toISOString().slice(0, 10);
 
@@ -275,15 +258,19 @@ const MealLog = {
 
     if (error) return console.error(error.message);
 
-    this.meals = [];
+    // Build a fresh array locally; only commit it if this load is still current.
+    const freshMeals = [];
     for (const m of meals || []) {
       const { data: items } = await sb.from('meal_items')
         .select('*')
         .eq('meal_id', m.id)
         .order('created_at', { ascending: true });
-      this.meals.push({ id: m.id, meal_type: m.meal_type, items: items || [] });
+      freshMeals.push({ id: m.id, meal_type: m.meal_type, items: items || [] });
     }
 
+    if (token !== App.loadToken) return; // stale load — discard
+
+    this.meals = freshMeals;
     this.sortMeals();
     this.renderMeals();
     this.updateTotals();
