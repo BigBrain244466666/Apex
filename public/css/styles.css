@@ -1,4 +1,4 @@
-/* ============ Apex Recomp & Health Tracker — ALL styles ============ */
+/* ============ Apex Recomp & Health Tracker — FINAL consolidated styles ============ */
 :root {
   --bg: #0d1117;
   --surface: #161b22;
@@ -43,6 +43,7 @@ body {
   font-weight: 600;
   cursor: pointer;
   transition: background 0.15s, opacity 0.15s;
+  white-space: nowrap;
 }
 .btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .btn-primary { background: var(--accent); color: #fff; }
@@ -92,35 +93,34 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 /* ============ Top bar + nav ============ */
 .topbar {
   display: flex; justify-content: space-between; align-items: center;
-  gap: 1rem;
-  padding: 1rem 1.5rem; border-bottom: 1px solid var(--border);
+  gap: 0.75rem;
+  padding: 0.85rem 1.25rem; border-bottom: 1px solid var(--border);
   background: var(--surface); position: sticky; top: 0; z-index: 50;
-  flex-wrap: wrap;
 }
-.topbar-brand { font-weight: 700; font-size: 1.1rem; }
+.topbar-brand { font-weight: 700; font-size: 1.1rem; white-space: nowrap; }
 .topbar-brand span { color: var(--accent); }
 
-.nav-tabs {
-  display: flex; gap: 0.3rem;
-  background: var(--surface-2);
-  padding: 0.3rem; border-radius: 8px;
-}
+.nav-tabs { display: flex; gap: 0.3rem; background: var(--surface-2); padding: 0.3rem; border-radius: 8px; }
 .nav-tab {
-  padding: 0.45rem 1.1rem; border: none; border-radius: 6px; cursor: pointer;
+  padding: 0.45rem 1rem; border: none; border-radius: 6px; cursor: pointer;
   background: transparent; color: var(--muted); font-weight: 600; font-size: 0.9rem;
+  white-space: nowrap;
 }
 .nav-tab.active { background: var(--accent); color: #fff; }
 
-/* ============ Dashboard layout ============ */
-.dashboard {
+/* ============ Main layout ============ */
+.dashboard, .gym-page {
   display: grid;
   gap: 1.25rem;
   padding: 1.25rem 1.5rem 3rem;
-  grid-template-columns: repeat(12, 1fr);
+  grid-template-columns: 1fr;
+  max-width: 1400px;
+  margin: 0 auto;
   width: 100%;
 }
-.macro-card { grid-column: 1 / -1; }
-.meal-card { grid-column: 1 / -1; }
+
+/* All major sections are full-width stacked — predictable + clean */
+.macro-card, .meal-card, .settings-card, .huawei-tiles, .trends-card { grid-column: 1 / -1; }
 
 .card {
   background: var(--surface); border: 1px solid var(--border);
@@ -132,11 +132,7 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem; }
 
 /* ============ Macro bars ============ */
-.macro-bars {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1.5rem;
-}
+.macro-bars { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; }
 .macro-item { min-width: 0; }
 .macro-head { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 0.3rem; gap: 0.5rem; }
 .macro-label { font-weight: 600; }
@@ -156,25 +152,19 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 
 /* ============ Meals ============ */
 .meal-group {
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  overflow: hidden;
-  margin-bottom: 1rem;
-  background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+  margin-bottom: 1rem; background: var(--surface-2);
 }
 .meal-group-header {
   display: flex; align-items: center; gap: 0.75rem;
-  padding: 0.7rem 1rem;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  padding: 0.7rem 1rem; background: var(--surface); border-bottom: 1px solid var(--border);
 }
-.meal-type-badge { font-weight: 700; font-size: 0.9rem; }
+.meal-type-badge { font-weight: 700; font-size: 0.9rem; white-space: nowrap; }
 .meal-group-totals { margin-left: auto; font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
 .meal-items { border-bottom: 1px solid var(--border); }
 .meal-item-row {
   display: grid; grid-template-columns: 1fr auto auto; align-items: center;
-  gap: 0.75rem; padding: 0.5rem 1rem; border-bottom: 1px solid var(--surface-2);
-  font-size: 0.85rem;
+  gap: 0.75rem; padding: 0.5rem 1rem; border-bottom: 1px solid var(--surface-2); font-size: 0.85rem;
 }
 .meal-item-row:last-child { border-bottom: none; }
 .meal-item-name { line-height: 1.3; }
@@ -183,86 +173,51 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 .add-food-btn { margin: 0.5rem; }
 .meal-total { margin-top: 0.75rem; font-size: 0.85rem; color: var(--muted); }
 
-/* ============ Gym page ============ */
-.gym-page {
-  display: grid;
-  gap: 1.25rem;
-  padding: 1.25rem 1.5rem 3rem;
-  grid-template-columns: repeat(12, 1fr);
-  width: 100%;
-}
-.metrics-card { grid-column: span 5; }
-.workouts-card { grid-column: span 7; }
-.trends-card { grid-column: 1 / -1; }
-
-.new-workout-row { display: flex; gap: 0.5rem; }
-.new-workout-row input { width: auto; }
+/* ============ Gym ============ */
+.metrics-card, .workouts-card { grid-column: 1 / -1; }
+.new-workout-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.new-workout-row input { width: auto; flex: 1; min-width: 140px; }
 
 .workout-card {
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  margin-bottom: 1rem;
-  background: var(--surface-2);
-  overflow: hidden;
+  border: 1px solid var(--border); border-radius: 10px; margin-bottom: 1rem;
+  background: var(--surface-2); overflow: hidden;
 }
 .workout-header {
   display: flex; align-items: center; gap: 0.75rem;
-  padding: 0.7rem 1rem;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  padding: 0.7rem 1rem; background: var(--surface); border-bottom: 1px solid var(--border);
 }
 .workout-date { font-weight: 700; }
-.workout-volume { margin-left: auto; font-size: 0.8rem; color: var(--muted); }
+.workout-volume { margin-left: auto; font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
 .workout-exercises { padding: 0 0.75rem; }
 
 .exercise-block {
-  border: 1px solid var(--surface-2);
-  border-radius: 8px;
-  margin: 0.75rem 0;
-  background: var(--surface);
-  overflow: hidden;
+  border: 1px solid var(--surface-2); border-radius: 8px; margin: 0.75rem 0;
+  background: var(--surface); overflow: hidden;
 }
-.exercise-header {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 0.55rem 0.75rem;
-}
+.exercise-header { display: flex; justify-content: space-between; align-items: center; padding: 0.55rem 0.75rem; }
 .exercise-name { font-weight: 600; font-size: 0.9rem; }
 
 .set-table { border-top: 1px solid var(--surface-2); }
 .set-row {
-  display: grid;
-  grid-template-columns: 0.5fr 1fr 0.7fr 1fr auto;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.35rem 0.75rem;
-  font-size: 0.82rem;
-  border-bottom: 1px solid var(--surface-2);
+  display: grid; grid-template-columns: 0.6fr 1fr 0.7fr 1fr auto;
+  align-items: center; gap: 0.4rem; padding: 0.35rem 0.75rem;
+  font-size: 0.82rem; border-bottom: 1px solid var(--surface-2);
 }
 .set-row:last-child { border-bottom: none; }
 .set-row-head { color: var(--muted); font-weight: 600; font-size: 0.75rem; }
 .set-empty { padding: 0.5rem 0.75rem; font-size: 0.8rem; }
 
-.add-set-row {
-  display: flex; gap: 0.4rem;
-  padding: 0.5rem 0.75rem;
-  border-top: 1px solid var(--surface-2);
-}
-.add-set-row input { width: 80px; flex: 1; min-width: 0; }
+.add-set-row { display: flex; gap: 0.4rem; padding: 0.5rem 0.75rem; border-top: 1px solid var(--surface-2); flex-wrap: wrap; }
+.add-set-row input { flex: 1; min-width: 60px; }
 
-.add-exercise-row {
-  display: flex; gap: 0.5rem;
-  padding: 0.75rem;
-}
-.add-exercise-row input { flex: 1; }
+.add-exercise-row { display: flex; gap: 0.5rem; padding: 0.75rem; flex-wrap: wrap; }
+.add-exercise-row input { flex: 1; min-width: 140px; }
 
 .trend-select { max-width: 280px; }
 .trend-title { font-size: 1rem; margin-bottom: 0.75rem; }
 .trend-chart-wrap { margin-bottom: 1rem; }
 .trend-chart { width: 100%; height: 180px; display: block; }
-.trend-chart-labels {
-  display: flex; justify-content: space-between;
-  font-size: 0.7rem; color: var(--muted);
-}
+.trend-chart-labels { display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--muted); }
 
 /* ============ Vitals ============ */
 .vitals-form { display: flex; flex-direction: column; gap: 0.9rem; margin-bottom: 1.25rem; }
@@ -280,16 +235,9 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 .modal { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; padding: 1.25rem; }
 .modal-backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.6); }
 .modal-card {
-  position: relative;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 1.5rem;
-  width: 100%;
-  max-width: 520px;
-  max-height: 90vh;
-  overflow-y: auto;
+  position: relative; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.5rem;
+  width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto;
 }
 .modal-small { max-width: 380px; }
 .modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
@@ -297,35 +245,26 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 
 .meal-type-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.6rem; }
 .meal-type-btn {
-  padding: 1rem 0.75rem;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
-  color: var(--text);
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  padding: 1rem 0.75rem; border-radius: 10px; border: 1px solid var(--border);
+  background: var(--surface-2); color: var(--text); font-size: 0.95rem;
+  font-weight: 600; cursor: pointer; transition: border-color 0.15s, background 0.15s;
 }
 .meal-type-btn:hover { border-color: var(--accent); background: rgba(77, 107, 254, 0.1); }
 
-/* ============ Food form (in modal) ============ */
+/* ============ Food form ============ */
 .food-form { display: flex; flex-direction: column; gap: 0.9rem; }
-
 .serving-row {
-  display: flex; align-items: flex-end; gap: 0.6rem;
-  padding: 0.6rem 0.8rem; border-radius: 8px;
-  background: var(--surface-2); border: 1px solid var(--border);
+  display: flex; align-items: flex-end; gap: 0.6rem; padding: 0.6rem 0.8rem;
+  border-radius: 8px; background: var(--surface-2); border: 1px solid var(--border); flex-wrap: wrap;
 }
-.serving-row .field-label { margin: 0; flex: 1; }
+.serving-row .field-label { margin: 0; flex: 1; min-width: 120px; }
 .serving-unit { color: var(--muted); font-size: 0.85rem; padding-bottom: 0.65rem; }
 .serving-note { color: var(--accent); font-size: 0.8rem; padding-bottom: 0.65rem; white-space: nowrap; }
 
 .food-results { display: flex; flex-direction: column; gap: 0.4rem; max-height: 240px; overflow-y: auto; }
 .food-empty {
   padding: 0.75rem; border-radius: 8px; font-size: 0.85rem;
-  background: var(--surface-2); border: 1px dashed var(--border); color: var(--muted);
-  text-align: center;
+  background: var(--surface-2); border: 1px dashed var(--border); color: var(--muted); text-align: center;
 }
 .food-result {
   display: flex; flex-direction: column; gap: 0.3rem; text-align: left;
@@ -340,58 +279,40 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 .food-source { font-size: 0.7rem; font-weight: 600; }
 .food-source.complete { color: var(--green); }
 .food-source.partial { color: var(--orange); }
-.food-macros {
-  font-size: 0.8rem; color: var(--muted);
-  display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: center;
-}
+.food-macros { font-size: 0.8rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: center; }
 .food-macros small { opacity: 0.7; }
 
 .meal-macro-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; }
 .meal-macro-grid label { font-size: 0.75rem; color: var(--muted); }
 .meal-macro-grid input { margin-top: 0.25rem; }
 
-/* ============ Huawei settings + toggle ============ */
-.settings-card { grid-column: 1 / -1; }
-
+/* ============ Huawei settings ============ */
 .settings-row {
   display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
-  padding: 0.75rem 0;
 }
-.settings-row .settings-label { margin-left: auto; color: var(--muted); font-size: 0.85rem; }
+.settings-row .settings-label { margin-left: auto; color: var(--muted); font-size: 0.85rem; white-space: nowrap; }
 
 .switch { position: relative; display: inline-block; width: 48px; height: 26px; flex-shrink: 0; }
 .switch input { opacity: 0; width: 0; height: 0; }
 .slider {
   position: absolute; cursor: pointer; inset: 0;
-  background: var(--surface-2); border: 1px solid var(--border);
-  border-radius: 999px; transition: 0.25s;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; transition: 0.25s;
 }
 .slider:before {
-  content: ""; position: absolute; height: 18px; width: 18px;
-  left: 3px; top: 3px; background: var(--muted);
-  border-radius: 50%; transition: 0.25s;
+  content: ""; position: absolute; height: 18px; width: 18px; left: 3px; top: 3px;
+  background: var(--muted); border-radius: 50%; transition: 0.25s;
 }
 .switch input:checked + .slider { background: var(--accent); border-color: var(--accent); }
 .switch input:checked + .slider:before { transform: translateX(22px); background: #fff; }
 
-/* ============ Huawei health tiles ============ */
-.huawei-tiles {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 1rem;
-}
-
+/* ============ Huawei tiles ============ */
+.huawei-tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem; }
 .tile {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); box-shadow: var(--shadow);
-  padding: 1.25rem; min-width: 0;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 1.25rem; min-width: 0;
 }
-.tile-title {
-  font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem;
-  display: flex; justify-content: space-between; align-items: center;
-}
-.tile-value { font-size: 1.9rem; font-weight: 700; line-height: 1.1; }
+.tile-title { font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem; }
+.tile-value { font-size: 1.7rem; font-weight: 700; line-height: 1.1; overflow-wrap: break-word; }
 .tile-unit { font-size: 1rem; color: var(--muted); margin-left: 0.2rem; }
 .tile-sub { font-size: 0.78rem; color: var(--muted); margin-top: 0.2rem; }
 
@@ -399,15 +320,16 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 .mini-stage-head { display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 0.2rem; }
 .mini-stage-head b { font-weight: 600; }
 
-.huawei-note {
-  grid-column: 1 / -1;
-  font-size: 0.8rem; color: var(--muted);
-  margin-top: -0.25rem;
-}
+.huawei-note { font-size: 0.8rem; color: var(--muted); margin-top: -0.25rem; }
 
 /* ============ Responsive ============ */
+@media (min-width: 900px) {
+  .metrics-card, .workouts-card {
+    grid-column: span 6;
+  }
+}
+
 @media (max-width: 1100px) {
-  .metrics-card, .workouts-card { grid-column: 1 / -1; }
   .huawei-tiles { grid-template-columns: repeat(3, 1fr); }
 }
 
@@ -417,8 +339,8 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 
 @media (max-width: 640px) {
   .dashboard, .gym-page { padding: 1rem; gap: 1rem; }
-  .topbar { padding: 0.85rem 1rem; }
-  .nav-tab { padding: 0.4rem 0.8rem; font-size: 0.85rem; }
+  .topbar { padding: 0.75rem 0.9rem; flex-wrap: wrap; gap: 0.5rem; }
+  .nav-tab { padding: 0.4rem 0.7rem; font-size: 0.85rem; }
   .auth-card { padding: 1.5rem; }
   .macro-bars { grid-template-columns: 1fr; }
   .meal-macro-grid, .vitals-grid { grid-template-columns: repeat(2, 1fr); }
@@ -427,10 +349,7 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
   .meal-item-row { grid-template-columns: 1fr auto; }
   .meal-item-macros { grid-column: 1 / -1; font-size: 0.75rem; }
   .meal-type-grid { grid-template-columns: 1fr; }
-  .new-workout-row { flex-wrap: wrap; }
-  .new-workout-row input { flex: 1; min-width: 130px; }
-  .add-set-row { flex-wrap: wrap; }
-  .add-set-row input { flex: 1 1 30%; }
+  .new-workout-row input { flex: 1 1 100%; }
   .set-row { grid-template-columns: 0.5fr 0.8fr 0.6fr 0.8fr auto; font-size: 0.75rem; }
   .huawei-tiles { grid-template-columns: repeat(2, 1fr); }
   .settings-row { gap: 0.5rem; }
