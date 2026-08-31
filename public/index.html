@@ -10,6 +10,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+  <!-- ============ AUTH VIEW ============ -->
   <div id="auth-view" class="view hidden">
     <div class="auth-card">
       <h1 class="app-logo">Apex<span>Recomp</span></h1>
@@ -29,13 +30,19 @@
     </div>
   </div>
 
+  <!-- ============ APP (dashboard + gym) ============ -->
   <div id="dashboard-view" class="view hidden">
     <header class="topbar">
       <div class="topbar-brand">Apex<span>Recomp</span></div>
+      <nav class="nav-tabs">
+        <button id="nav-dashboard" class="nav-tab active">Dashboard</button>
+        <button id="nav-gym" class="nav-tab">Gym</button>
+      </nav>
       <button id="logout-btn" class="btn btn-ghost">Sign Out</button>
     </header>
 
-    <main class="dashboard">
+    <!-- ============ PAGE: DASHBOARD ============ -->
+    <main id="page-dashboard" class="dashboard">
       <section class="card macro-card">
         <h2 class="card-title">Daily Macros</h2>
         <p class="card-sub" id="macro-date"></p>
@@ -53,39 +60,19 @@
       </section>
 
       <section class="card meal-card">
-        <h2 class="card-title">Meal Log</h2>
-        <form id="meal-form" class="meal-form">
-          <div class="meal-search-row">
-            <input id="meal-food" type="text" placeholder="Search food (e.g. Swiss cheese)…" autocomplete="off" />
-            <button type="button" id="food-search-btn" class="btn btn-outline">Search</button>
-          </div>
-          <div id="food-results" class="food-results hidden"></div>
-          <div id="serving-row" class="serving-row hidden">
-            <label class="field-label">Serving size
-              <input id="meal-serving" type="number" min="0" step="1" value="100" />
-            </label>
-            <span class="serving-unit">grams</span>
-            <span id="serving-note" class="serving-note"></span>
-          </div>
-          <div class="meal-macro-grid">
-            <label>Calories <input id="meal-cal" type="number" min="0" required /></label>
-            <label>Protein (g) <input id="meal-protein" type="number" min="0" step="0.1" required /></label>
-            <label>Fat (g) <input id="meal-fat" type="number" min="0" step="0.1" required /></label>
-            <label>Carbs (g) <input id="meal-carbs" type="number" min="0" step="0.1" required /></label>
-          </div>
-          <button type="submit" class="btn btn-primary btn-block">Add Meal</button>
-        </form>
-        <div class="table-wrap">
-          <table class="data-table" id="meal-table">
-            <thead><tr><th>Food</th><th>Cal</th><th>P</th><th>F</th><th>C</th><th></th></tr></thead>
-            <tbody id="meal-tbody"></tbody>
-          </table>
+        <div class="card-head">
+          <h2 class="card-title">Meals</h2>
+          <button id="add-meal-btn" class="btn btn-outline">+ Add Meal</button>
         </div>
+        <div id="meals-container"></div>
         <p class="meal-total" id="meal-total-row"></p>
       </section>
+    </main>
 
-      <section class="card vitals-card">
-        <h2 class="card-title">Weekly Progress &amp; Vitals</h2>
+    <!-- ============ PAGE: GYM ============ -->
+    <main id="page-gym" class="gym-page hidden">
+      <section class="card metrics-card">
+        <h2 class="card-title">Body Metrics</h2>
         <form id="vitals-form" class="vitals-form">
           <div class="vitals-grid">
             <label>Date <input id="vitals-date" type="date" required /></label>
@@ -98,12 +85,81 @@
         </form>
         <div class="table-wrap">
           <table class="data-table" id="vitals-table">
-            <thead><tr><th>Date</th><th>Weight</th><th>7d Avg</th><th>Waist</th><th>Notes</th><th></th></tr></thead>
+            <thead>
+              <tr><th>Date</th><th>Weight</th><th>7d Avg</th><th>Waist</th><th>Notes</th><th></th></tr>
+            </thead>
             <tbody id="vitals-tbody"></tbody>
           </table>
         </div>
       </section>
+
+      <section class="card workouts-card">
+        <div class="card-head">
+          <h2 class="card-title">Workouts</h2>
+          <div class="new-workout-row">
+            <input id="new-workout-date" type="date" />
+            <button id="new-workout-btn" class="btn btn-primary">+ New Workout</button>
+          </div>
+        </div>
+        <div id="workouts-container"></div>
+      </section>
+
+      <section class="card trends-card">
+        <div class="card-head">
+          <h2 class="card-title">Trends</h2>
+          <select id="trend-exercise-select" class="trend-select">
+            <option value="">— Select exercise —</option>
+          </select>
+        </div>
+        <div id="trends-container"></div>
+      </section>
     </main>
+  </div>
+
+  <!-- ============ MEAL TYPE MODAL ============ -->
+  <div id="meal-type-modal" class="modal hidden">
+    <div class="modal-backdrop" data-close-modal="meal-type-modal"></div>
+    <div class="modal-card modal-small">
+      <div class="modal-head">
+        <h3>New Meal</h3>
+        <button class="icon-btn" data-close-modal="meal-type-modal">✕</button>
+      </div>
+      <div class="meal-type-grid">
+        <button class="meal-type-btn" data-type="breakfast">🍳 Breakfast</button>
+        <button class="meal-type-btn" data-type="lunch">🥗 Lunch</button>
+        <button class="meal-type-btn" data-type="dinner">🍽️ Dinner</button>
+        <button class="meal-type-btn" data-type="snack">🍎 Snack</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ FOOD MODAL ============ -->
+  <div id="food-modal" class="modal hidden">
+    <div class="modal-backdrop" data-close-modal="food-modal"></div>
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3 id="food-modal-title">Add Food</h3>
+        <button class="icon-btn" data-close-modal="food-modal">✕</button>
+      </div>
+      <form id="food-form" class="food-form">
+        <input id="food-search" type="text" placeholder="Search food (e.g. Swiss cheese)…" autocomplete="off" />
+        <div id="food-results" class="food-results hidden"></div>
+        <div id="serving-row" class="serving-row hidden">
+          <label class="field-label">Serving size
+            <input id="food-serving" type="number" min="0" step="1" value="100" />
+          </label>
+          <span class="serving-unit">grams</span>
+          <span id="serving-note" class="serving-note"></span>
+        </div>
+        <div class="meal-macro-grid">
+          <label>Calories <input id="food-cal" type="number" min="0" required /></label>
+          <label>Protein (g) <input id="food-protein" type="number" min="0" step="0.1" required /></label>
+          <label>Fat (g) <input id="food-fat" type="number" min="0" step="0.1" required /></label>
+          <label>Carbs (g) <input id="food-carbs" type="number" min="0" step="0.1" required /></label>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Add Food</button>
+      </form>
+    </div>
   </div>
 
   <script src="/js/config.js"></script>
@@ -112,6 +168,7 @@
   <script src="/js/dashboard.js"></script>
   <script src="/js/mealLog.js"></script>
   <script src="/js/vitals.js"></script>
+  <script src="/js/gym.js"></script>
   <script src="/js/huaweiCard.js"></script>
   <script src="/js/app.js"></script>
 </body>

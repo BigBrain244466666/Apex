@@ -1,0 +1,7 @@
+# Netlify config for Apex Recomp & Health Tracker
+[build]
+  # The app is already static — the public/ folder IS the site.
+  publish = "public"
+
+[functions]
+  directory = "netlify/functions"

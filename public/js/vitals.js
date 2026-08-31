@@ -1,7 +1,11 @@
 const Vitals = {
   rows: [],
+  bound: false,
 
   bindForm() {
+    if (this.bound) return;
+    this.bound = true;
+
     const form = document.getElementById('vitals-form');
     const dateInput = document.getElementById('vitals-date');
     dateInput.value = new Date().toISOString().slice(0, 10);

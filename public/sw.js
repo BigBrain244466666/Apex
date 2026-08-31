@@ -1,4 +1,4 @@
-const CACHE_NAME = 'apex-recomp-v2';
+const CACHE_NAME = 'apex-recomp-v3';
 const STATIC_ASSETS = [
   '/',
   '/css/styles.css',
@@ -9,6 +9,7 @@ const STATIC_ASSETS = [
   '/js/dashboard.js',
   '/js/mealLog.js',
   '/js/vitals.js',
+  '/js/gym.js',
   '/js/huaweiCard.js',
   '/js/app.js'
 ];

@@ -10,13 +10,14 @@ const DEFAULT_PROFILE = {
   carb_target: 220
 };
 
-const SEED_BREAKFAST = {
-  food_name: '5 eggs, 88g pork sausage, 78g Swiss cheese, 1 cup skim milk, soy sauce',
-  calories: 1048,
-  protein: 75,
-  fat: 72,
-  carbs: 25
-};
+// Seeded breakfast — split into real items that total 1,048 kcal.
+const SEED_BREAKFAST_ITEMS = [
+  { food_name: '5 large eggs', calories: 360, protein: 31, fat: 25, carbs: 1 },
+  { food_name: '88g pork sausage', calories: 310, protein: 15, fat: 27, carbs: 1 },
+  { food_name: '78g Swiss cheese', calories: 280, protein: 20, fat: 21, carbs: 1 },
+  { food_name: '1 cup skim milk', calories: 83, protein: 8, fat: 0, carbs: 12 },
+  { food_name: 'Soy sauce', calories: 15, protein: 1, fat: 0, carbs: 3 }
+];
 
 const MACRO_STYLES = [
   { key: 'calories', label: 'Calories', color: '#4d6bfe' },
@@ -36,11 +37,21 @@ const Dashboard = {
       return data;
     }
 
+    // First run: create default profile + seed the breakfast meal.
     const profileRow = { user_id: userId, ...DEFAULT_PROFILE };
     await sb.from('profiles').insert(profileRow);
 
     const today = new Date().toISOString().slice(0, 10);
-    await sb.from('meal_logs').insert({ user_id: userId, ...SEED_BREAKFAST, meal_date: today });
+    const { data: meal } = await sb.from('meals').insert({
+      user_id: userId,
+      meal_type: 'breakfast',
+      meal_date: today
+    }).select().single();
+
+    if (meal) {
+      const items = SEED_BREAKFAST_ITEMS.map((it) => ({ meal_id: meal.id, user_id: userId, ...it }));
+      await sb.from('meal_items').insert(items);
+    }
 
     this.profile = profileRow;
     return profileRow;
@@ -75,7 +86,7 @@ const Dashboard = {
         <div class="progress-track">
           <div class="progress-fill" style="width:${pct}%;background:${m.color}"></div>
         </div>
-        <div class="macro-remaining">${Math.round(remaining)}${m.key === 'calories' ? ' kcal' : 'g'} remaining</div>
+        <div class="macro-remaining">${Math.round(remaining)}${m.key === 'calories' ? ' kcal' : 'g'} left</div>
       `;
       el.appendChild(bar);
     }

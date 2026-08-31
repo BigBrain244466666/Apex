@@ -1,5 +1,8 @@
 const App = {
   totals: { calories: 0, protein: 0, fat: 0, carbs: 0 },
+  authBound: false,
+  appBound: false,
+  userId: null,
 
   async boot() {
     await loadAppConfig();
@@ -15,7 +18,8 @@ const App = {
     if (session) {
       authView.classList.add('hidden');
       dashView.classList.remove('hidden');
-      this.initDashboard(session.user.id);
+      this.userId = session.user.id;
+      this.initApp();
     } else {
       authView.classList.remove('hidden');
       dashView.classList.add('hidden');
@@ -24,6 +28,9 @@ const App = {
   },
 
   initAuth() {
+    if (this.authBound) return;
+    this.authBound = true;
+
     const form = document.getElementById('auth-form');
     const loginTab = document.getElementById('tab-login');
     const signupTab = document.getElementById('tab-signup');
@@ -66,21 +73,55 @@ const App = {
     });
   },
 
-  async initDashboard(userId) {
-    document.getElementById('logout-btn').addEventListener('click', async () => {
-      await Auth.signOut();
-    });
+  initApp() {
+    if (!this.appBound) {
+      this.appBound = true;
 
-    await Dashboard.ensureProfile(userId);
-    MealLog.bindForm();
-    Vitals.bindForm();
+      document.getElementById('logout-btn').addEventListener('click', async () => {
+        await Auth.signOut();
+      });
 
+      // Page navigation
+      document.getElementById('nav-dashboard').addEventListener('click', () => this.showPage('dashboard'));
+      document.getElementById('nav-gym').addEventListener('click', () => this.showPage('gym'));
+
+      // Bind all modules
+      MealLog.bindUI();
+      Vitals.bindForm();
+      Gym.bindUI();
+    }
+
+    // Load data for both pages (fresh on every auth state change).
+    this.loadDashboardData();
+  },
+
+  showPage(page) {
+    const dashPage = document.getElementById('page-dashboard');
+    const gymPage = document.getElementById('page-gym');
+    const navDash = document.getElementById('nav-dashboard');
+    const navGym = document.getElementById('nav-gym');
+
+    if (page === 'dashboard') {
+      dashPage.classList.remove('hidden');
+      gymPage.classList.add('hidden');
+      navDash.classList.add('active');
+      navGym.classList.remove('active');
+    } else {
+      dashPage.classList.add('hidden');
+      gymPage.classList.remove('hidden');
+      navDash.classList.remove('active');
+      navGym.classList.add('active');
+    }
+  },
+
+  async loadDashboardData() {
+    await Dashboard.ensureProfile(this.userId);
     await Promise.all([
-      MealLog.loadToday(userId),
-      Vitals.load(userId),
+      MealLog.load(this.userId),
+      Vitals.load(this.userId),
+      Gym.load(this.userId),
       HuaweiCard.refresh()
     ]);
-
     this.refreshMacros();
   },
 
