@@ -369,3 +369,56 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
   .settings-row .switch,
   .settings-row .btn { align-self: flex-start; }
 }
+
+
+# CSS Additions — append these to the END of public/css/styles.css
+
+Open `public/css/styles.css` and paste the following block at the very bottom
+(after all existing rules). This styles the History page, workout completion
+button, start time input, and all new history elements.
+
+```css
+/* ============ History page ============ */
+.history-page {
+  display: grid;
+  gap: 1.25rem;
+  padding: 1.25rem 1.5rem 3rem;
+  grid-template-columns: 1fr;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}
+.hist-card { grid-column: 1 / -1; }
+.hist-trend { margin-top: 1.5rem; }
+
+.history-day-totals {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.hist-stat {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.hist-stat b { display: block; font-size: 1.2rem; color: var(--text); }
+
+.hist-meal-group {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.hist-meal-head {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0.6rem 0.85rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  font-weight: 600; font-size: 0.9rem;
+}

@@ -1,3 +1,9 @@
+/**
+ * Gym module: active workout logger.
+ * Only shows INCOMPLETE workouts. Completed ones go to History.
+ * Each workout has a start time + can be marked complete.
+ */
+
 const Gym = {
   workouts: [],
   bound: false,
@@ -16,24 +22,21 @@ const Gym = {
     document.getElementById('new-workout-btn').addEventListener('click', () => {
       this.createWorkout();
     });
-
-    document.getElementById('trend-exercise-select').addEventListener('change', (e) => {
-      this.renderTrends(e.target.value);
-    });
   },
 
   async load(userId, token) {
     const sb = getSupabase();
 
+    // Only active (incomplete) workouts.
     const { data: workouts, error } = await sb.from('workouts')
-      .select('id, workout_date, notes')
+      .select('id, workout_date, start_time, notes, completed')
       .eq('user_id', userId)
+      .eq('completed', false)
       .order('workout_date', { ascending: false })
-      .limit(100);
+      .limit(20);
 
     if (error) return console.error(error.message);
 
-    // Build fresh array locally.
     const freshWorkouts = [];
     for (const w of workouts || []) {
       const { data: exercises } = await sb.from('workout_exercises')
@@ -50,33 +53,61 @@ const Gym = {
         exList.push({ id: ex.id, exercise_name: ex.exercise_name, sets: sets || [] });
       }
 
-      freshWorkouts.push({ id: w.id, workout_date: w.workout_date, notes: w.notes, exercises: exList });
+      freshWorkouts.push({
+        id: w.id,
+        workout_date: w.workout_date,
+        start_time: w.start_time,
+        notes: w.notes,
+        exercises: exList
+      });
     }
 
-    if (token !== App.loadToken) return; // stale load — discard
+    if (token !== App.loadToken) return;
 
     this.workouts = freshWorkouts;
     this.renderWorkouts();
-    this.populateTrendSelector();
   },
 
   async createWorkout() {
     const dateInput = document.getElementById('new-workout-date');
+    const timeInput = document.getElementById('new-workout-time');
     const date = dateInput.value || new Date().toISOString().slice(0, 10);
+    const startTime = timeInput.value || null;
 
     const sb = getSupabase();
     const userId = (await sb.auth.getUser()).data.user.id;
 
     const { data, error } = await sb.from('workouts').insert({
       user_id: userId,
-      workout_date: date
+      workout_date: date,
+      start_time: startTime,
+      completed: false
     }).select().single();
 
     if (error) return alert(error.message);
 
-    this.workouts.unshift({ id: data.id, workout_date: data.workout_date, notes: null, exercises: [] });
+    this.workouts.unshift({
+      id: data.id,
+      workout_date: data.workout_date,
+      start_time: data.start_time,
+      exercises: []
+    });
+
     this.renderWorkouts();
-    this.populateTrendSelector();
+  },
+
+  async completeWorkout(id) {
+    if (!confirm('Complete this workout? It will move to History.')) return;
+
+    const sb = getSupabase();
+    const { error } = await sb.from('workouts')
+      .update({ completed: true })
+      .eq('id', id);
+
+    if (error) return alert(error.message);
+
+    this.workouts = this.workouts.filter((w) => w.id !== id);
+    this.renderWorkouts();
   },
 
   async deleteWorkout(id) {
@@ -85,7 +116,6 @@ const Gym = {
     await sb.from('workouts').delete().eq('id', id);
     this.workouts = this.workouts.filter((w) => w.id !== id);
     this.renderWorkouts();
-    this.populateTrendSelector();
   },
 
   async addExercise(workoutId) {
@@ -109,7 +139,6 @@ const Gym = {
 
     input.value = '';
     this.renderWorkouts();
-    this.populateTrendSelector();
   },
 
   async deleteExercise(exerciseId) {
@@ -119,7 +148,6 @@ const Gym = {
       w.exercises = w.exercises.filter((ex) => ex.id !== exerciseId);
     }
     this.renderWorkouts();
-    this.populateTrendSelector();
   },
 
   async addSet(exerciseId) {
@@ -188,7 +216,7 @@ const Gym = {
     container.innerHTML = '';
 
     if (!this.workouts.length) {
-      container.innerHTML = '<p class="muted">No workouts yet. Add your first workout above.</p>';
+      container.innerHTML = '<p class="muted">No active workouts. Add one above, or check History for past ones.</p>';
       return;
     }
 
@@ -202,10 +230,18 @@ const Gym = {
         weekday: 'short', month: 'short', day: 'numeric'
       });
 
+      const timeLabel = workout.start_time
+        ? formatTime12(workout.start_time)
+        : '—';
+
       card.innerHTML = `
         <div class="workout-header">
-          <span class="workout-date">${dateLabel}</span>
+          <div class="workout-header-info">
+            <span class="workout-date">${dateLabel}</span>
+            <span class="workout-time muted">${timeLabel}</span>
+          </div>
           <span class="workout-volume">${this.workoutVolume(workout)} lb volume</span>
+          <button class="btn btn-ghost complete-workout-btn" data-workout-id="${workout.id}">✓ Complete</button>
           <button class="icon-btn delete-workout" data-workout-id="${workout.id}" title="Delete workout">✕</button>
         </div>
 
@@ -247,6 +283,7 @@ const Gym = {
         </div>
       `;
 
+      card.querySelector('.complete-workout-btn').addEventListener('click', () => this.completeWorkout(workout.id));
       card.querySelector('.delete-workout').addEventListener('click', () => this.deleteWorkout(workout.id));
       card.querySelector('.add-exercise-btn').addEventListener('click', () => this.addExercise(workout.id));
 
@@ -264,121 +301,19 @@ const Gym = {
 
       container.appendChild(card);
     }
-  },
-
-  uniqueExerciseNames() {
-    const set = new Set();
-    for (const w of this.workouts) {
-      for (const ex of w.exercises) set.add(ex.exercise_name);
-    }
-    return [...set].sort();
-  },
-
-  populateTrendSelector() {
-    const select = document.getElementById('trend-exercise-select');
-    const current = select.value;
-    const names = this.uniqueExerciseNames();
-
-    select.innerHTML = '<option value="">— Select exercise —</option>' +
-      names.map((n) => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
-
-    if (current && names.includes(current)) select.value = current;
-
-    this.renderTrends(select.value);
-  },
-
-  renderTrends(exerciseName) {
-    const container = document.getElementById('trends-container');
-    container.innerHTML = '';
-
-    if (!exerciseName) {
-      container.innerHTML = '<p class="muted">Select an exercise above to see your progression.</p>';
-      return;
-    }
-
-    const byDate = new Map();
-
-    for (const w of this.workouts) {
-      for (const ex of w.exercises) {
-        if (ex.exercise_name !== exerciseName) continue;
-        if (!ex.sets.length) continue;
-
-        if (!byDate.has(w.workout_date)) {
-          byDate.set(w.workout_date, { date: w.workout_date, sets: [], bestE1rm: 0, volume: 0 });
-        }
-        const entry = byDate.get(w.workout_date);
-        for (const s of ex.sets) {
-          entry.sets.push(s);
-          const e = this.e1rm(s.weight, s.reps);
-          entry.bestE1rm = Math.max(entry.bestE1rm, e);
-          entry.volume += (Number(s.weight) || 0) * (Number(s.reps) || 0);
-        }
-      }
-    }
-
-    const dates = [...byDate.values()].sort((a, b) => b.date.localeCompare(a.date));
-
-    if (!dates.length) {
-      container.innerHTML = '<p class="muted">No sets logged for this exercise yet.</p>';
-      return;
-    }
-
-    const chrono = [...dates].reverse();
-    const chartData = chrono.map((d) => ({ label: d.date, value: d.bestE1rm }));
-
-    container.innerHTML = `
-      <h3 class="trend-title">${escapeHtml(exerciseName)}</h3>
-      <div id="trend-chart" class="trend-chart-wrap"></div>
-      <div class="table-wrap">
-        <table class="data-table">
-          <thead>
-            <tr><th>Date</th><th>Best e1RM</th><th>Volume (lb)</th><th>Sets</th></tr>
-          </thead>
-          <tbody>
-            ${dates.map((d) => `
-              <tr>
-                <td>${d.date}</td>
-                <td>${d.bestE1rm || '—'}</td>
-                <td>${d.volume}</td>
-                <td>${d.sets.map((s) => `${Number(s.weight) || 0}×${s.reps}`).join(', ')}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-    `;
-
-    this.renderChart(document.getElementById('trend-chart'), chartData);
-  },
-
-  renderChart(canvasEl, dataPoints) {
-    if (!dataPoints || dataPoints.length < 2) {
-      canvasEl.innerHTML = '<p class="muted small">Log at least 2 workouts to see a trend line.</p>';
-      return;
-    }
-
-    const w = 600;
-    const h = 180;
-    const pad = 30;
-    const vals = dataPoints.map((d) => d.value);
-    const min = Math.min(...vals);
-    const max = Math.max(...vals);
-    const range = (max - min) || 1;
-
-    const xFor = (i) => pad + (i / (dataPoints.length - 1)) * (w - pad * 2);
-    const yFor = (v) => h - pad - ((v - min) / range) * (h - pad * 2);
-
-    const linePoints = dataPoints.map((d, i) => `${xFor(i)},${yFor(d.value)}`).join(' ');
-
-    canvasEl.innerHTML = `
-      <svg viewBox="0 0 ${w} ${h}" class="trend-chart" preserveAspectRatio="none">
-        <polyline points="${linePoints}" fill="none" stroke="#4d6bfe" stroke-width="2" vector-effect="non-scaling-stroke" />
-        ${dataPoints.map((d, i) => `<circle cx="${xFor(i)}" cy="${yFor(d.value)}" r="3.5" fill="#4d6bfe" />`).join('')}
-      </svg>
-      <div class="trend-chart-labels">
-        <span>${escapeHtml(dataPoints[0].label)}</span>
-        <span>${escapeHtml(dataPoints[dataPoints.length - 1].label)}</span>
-      </div>
-    `;
   }
 };
+
+function formatTime12(timeStr) {
+  if (!timeStr) return '—';
+  const [h, m] = timeStr.split(':').map(Number);
+  const period = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  return `${h12}:${String(m).padStart(2, '0')} ${period}`;
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}

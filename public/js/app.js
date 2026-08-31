@@ -84,32 +84,30 @@ const App = {
 
       document.getElementById('nav-dashboard').addEventListener('click', () => this.showPage('dashboard'));
       document.getElementById('nav-gym').addEventListener('click', () => this.showPage('gym'));
+      document.getElementById('nav-history').addEventListener('click', () => this.showPage('history'));
 
       MealLog.bindUI();
       Vitals.bindForm();
       Gym.bindUI();
       Huawei.bindUI();
+      History.bindUI();
     }
 
     this.loadDashboardData();
   },
 
   showPage(page) {
-    const dashPage = document.getElementById('page-dashboard');
-    const gymPage = document.getElementById('page-gym');
-    const navDash = document.getElementById('nav-dashboard');
-    const navGym = document.getElementById('nav-gym');
-
-    if (page === 'dashboard') {
-      dashPage.classList.remove('hidden');
-      gymPage.classList.add('hidden');
-      navDash.classList.add('active');
-      navGym.classList.remove('active');
-    } else {
-      dashPage.classList.add('hidden');
-      gymPage.classList.remove('hidden');
-      navDash.classList.remove('active');
-      navGym.classList.add('active');
+    const pages = ['dashboard', 'gym', 'history'];
+    for (const p of pages) {
+      const el = document.getElementById(`page-${p}`);
+      const nav = document.getElementById(`nav-${p}`);
+      if (p === page) {
+        el.classList.remove('hidden');
+        nav.classList.add('active');
+      } else {
+        el.classList.add('hidden');
+        nav.classList.remove('active');
+      }
     }
   },
 
@@ -122,7 +120,8 @@ const App = {
     await Promise.all([
       MealLog.load(this.userId, token),
       Vitals.load(this.userId, token),
-      Gym.load(this.userId, token)
+      Gym.load(this.userId, token),
+      History.load(this.userId, token)
     ]);
 
     if (token === this.loadToken) {
