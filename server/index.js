@@ -1,7 +1,5 @@
 /**
  * Apex Recomp & Health Tracker — Express server.
- * Serves the static frontend and proxies Huawei + Nutrition APIs
- * so secrets never reach the browser.
  */
 
 require('dotenv').config();
@@ -16,7 +14,6 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
-// ---- Public config (safe values only — anon key is public by design) ----
 app.get('/api/config', (req, res) => {
   res.json({
     supabaseUrl: process.env.SUPABASE_URL || '',
@@ -25,7 +22,6 @@ app.get('/api/config', (req, res) => {
   });
 });
 
-// ---- Huawei Health Kit ----
 app.get('/api/huawei/sleep', async (req, res) => {
   try {
     const summary = await getSleepSummary();
@@ -44,19 +40,28 @@ app.get('/api/huawei/status', async (req, res) => {
   }
 });
 
-// ---- Nutrition search proxy ----
-app.post('/api/nutrition/search', async (req, res) => {
+app.get('/api/nutrition/search', async (req, res) => {
   try {
-    const { query } = req.body || {};
+    const query = req.query.query || '';
     const hits = await searchFood(query);
     res.json({ hits });
   } catch (err) {
-    console.error('Nutrition search failed:', err.message);
+    console.error('[Nutrition] search error:', err.message);
     res.status(502).json({ hits: [], error: err.message });
   }
 });
 
-// ---- SPA fallback ----
+app.post('/api/nutrition/search', async (req, res) => {
+  try {
+    const query = (req.body || {}).query || '';
+    const hits = await searchFood(query);
+    res.json({ hits });
+  } catch (err) {
+    console.error('[Nutrition] search error:', err.message);
+    res.status(502).json({ hits: [], error: err.message });
+  }
+});
+
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });

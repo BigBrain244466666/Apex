@@ -1,6 +1,3 @@
-/**
- * Dashboard: macro progress bars + profile defaults.
- */
 const DEFAULT_PROFILE = {
   weight_lbs: 173,
   height_cm: 179,
@@ -13,7 +10,6 @@ const DEFAULT_PROFILE = {
   carb_target: 220
 };
 
-// Pre-loaded breakfast per spec: 1,048 kcal
 const SEED_BREAKFAST = {
   food_name: '5 eggs, 88g pork sausage, 78g Swiss cheese, 1 cup skim milk, soy sauce',
   calories: 1048,
@@ -40,7 +36,6 @@ const Dashboard = {
       return data;
     }
 
-    // First run: create default profile + seed today's breakfast.
     const profileRow = { user_id: userId, ...DEFAULT_PROFILE };
     await sb.from('profiles').insert(profileRow);
 

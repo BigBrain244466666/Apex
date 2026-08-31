@@ -1,15 +1,10 @@
-/**
- * Main app controller: boot, auth state, view switching.
- */
 const App = {
   totals: { calories: 0, protein: 0, fat: 0, carbs: 0 },
 
   async boot() {
     await loadAppConfig();
-
     const session = await Auth.getSession();
     this.route(session);
-
     Auth.onAuthChange((session) => this.route(session));
   },
 
@@ -72,19 +67,14 @@ const App = {
   },
 
   async initDashboard(userId) {
-    // Bind logout
     document.getElementById('logout-btn').addEventListener('click', async () => {
       await Auth.signOut();
     });
 
-    // Ensure profile + seed breakfast on first run
     await Dashboard.ensureProfile(userId);
-
-    // Bind forms
     MealLog.bindForm();
     Vitals.bindForm();
 
-    // Load data
     await Promise.all([
       MealLog.loadToday(userId),
       Vitals.load(userId),

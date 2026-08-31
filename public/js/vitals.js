@@ -1,6 +1,3 @@
-/**
- * Vitals tracker: daily weigh-ins, 7-day rolling average, waist, notes.
- */
 const Vitals = {
   rows: [],
 
@@ -52,7 +49,6 @@ const Vitals = {
   },
 
   sevenDayAvg(index) {
-    // index = position in chronological rows array
     const start = Math.max(0, index - 6);
     const slice = this.rows.slice(start, index + 1).filter((r) => r.morning_weight != null);
     if (!slice.length) return null;
@@ -68,7 +64,6 @@ const Vitals = {
       return;
     }
 
-    // Show newest first
     const desc = [...this.rows].reverse();
     for (const row of desc) {
       const idx = this.rows.findIndex((r) => r.id === row.id);

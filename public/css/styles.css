@@ -1,4 +1,3 @@
-/* ============ Apex Recomp & Health Tracker — Dark Mode UI ============ */
 :root {
   --bg: #0d1117;
   --surface: #161b22;
@@ -30,7 +29,6 @@ body {
 .muted { color: var(--muted); }
 .small { font-size: 0.8rem; }
 
-/* ============ Buttons ============ */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -58,7 +56,6 @@ body {
 }
 .icon-btn:hover { color: var(--red); background: rgba(248, 81, 73, 0.1); }
 
-/* ============ Auth ============ */
 #auth-view {
   display: flex; align-items: center; justify-content: center;
   min-height: 100vh; padding: 1.5rem;
@@ -88,7 +85,6 @@ input[type="email"], input[type="password"], input[type="text"], input[type="num
 input:focus, textarea:focus { outline: none; border-color: var(--accent); }
 .form-error { color: var(--red); margin: 0.75rem 0; font-size: 0.85rem; }
 
-/* ============ Dashboard layout ============ */
 .topbar {
   display: flex; justify-content: space-between; align-items: center;
   padding: 1rem 1.5rem; border-bottom: 1px solid var(--border);
@@ -110,7 +106,6 @@ input:focus, textarea:focus { outline: none; border-color: var(--accent); }
 .card-sub { color: var(--muted); font-size: 0.85rem; margin-bottom: 1rem; }
 .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
 
-/* ============ Macro bars ============ */
 .macro-bars { display: flex; flex-direction: column; gap: 1.1rem; }
 .macro-head { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 0.3rem; }
 .macro-label { font-weight: 600; }
@@ -119,7 +114,6 @@ input:focus, textarea:focus { outline: none; border-color: var(--accent); }
 .progress-fill { height: 100%; border-radius: 999px; transition: width 0.4s ease; }
 .macro-remaining { font-size: 0.78rem; color: var(--muted); margin-top: 0.25rem; text-align: right; }
 
-/* ============ Huawei sleep card ============ */
 .status-badge {
   font-size: 0.7rem; font-weight: 700; padding: 0.25rem 0.7rem; border-radius: 999px;
   background: var(--surface-2); color: var(--muted); border: 1px solid var(--border);
@@ -132,13 +126,21 @@ input:focus, textarea:focus { outline: none; border-color: var(--accent); }
 .sleep-stage-head { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.25rem; }
 .huawei-footer { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem; color: var(--muted); }
 
-/* ============ Meal log ============ */
 .meal-form { display: flex; flex-direction: column; gap: 0.9rem; margin-bottom: 1.25rem; }
 .meal-search-row { display: flex; gap: 0.5rem; }
 .meal-search-row input { flex: 1; }
 .meal-macro-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; }
 .meal-macro-grid label { font-size: 0.75rem; color: var(--muted); }
 .meal-macro-grid input { margin-top: 0.25rem; }
+
+.serving-row {
+  display: flex; align-items: flex-end; gap: 0.6rem;
+  padding: 0.6rem 0.8rem; border-radius: 8px;
+  background: var(--surface-2); border: 1px solid var(--border);
+}
+.serving-row .field-label { margin: 0; flex: 1; }
+.serving-unit { color: var(--muted); font-size: 0.85rem; padding-bottom: 0.65rem; }
+.serving-note { color: var(--accent); font-size: 0.8rem; padding-bottom: 0.65rem; white-space: nowrap; }
 
 .food-results { display: flex; flex-direction: column; gap: 0.4rem; max-height: 280px; overflow-y: auto; }
 .food-empty {
@@ -173,17 +175,17 @@ input:focus, textarea:focus { outline: none; border-color: var(--accent); }
 .notes-cell { max-width: 200px; white-space: normal !important; line-height: 1.3; color: var(--muted); }
 .meal-total { margin-top: 0.75rem; font-size: 0.85rem; color: var(--muted); }
 
-/* ============ Vitals ============ */
 .vitals-form { display: flex; flex-direction: column; gap: 0.9rem; margin-bottom: 1.25rem; }
 .vitals-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
 .vitals-grid label { font-size: 0.75rem; color: var(--muted); }
 .vitals-grid input { margin-top: 0.25rem; }
 
-/* ============ Mobile responsive ============ */
 @media (max-width: 640px) {
   .dashboard { padding: 1rem; gap: 1rem; grid-template-columns: 1fr; }
   .topbar { padding: 0.85rem 1rem; }
   .auth-card { padding: 1.5rem; }
   .meal-macro-grid, .vitals-grid { grid-template-columns: repeat(2, 1fr); }
   .sleep-total { font-size: 1.6rem; }
+  .serving-row { flex-wrap: wrap; }
+  .serving-unit, .serving-note { padding-bottom: 0; }
 }

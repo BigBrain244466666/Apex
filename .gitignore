@@ -1,0 +1,34 @@
+# ============ Environment / Secrets ============
+# NEVER commit .env — contains API keys and secrets
+.env
+.env.local
+.env.*.local
+
+# ============ Node ============
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# ============ OS junk ============
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ============ Editor/IDE ============
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ============ Logs ============
+logs/
+*.log
+
+# ============ Misc ============
+coverage/
+dist/
+build/
+.cache/

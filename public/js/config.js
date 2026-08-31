@@ -1,7 +1,3 @@
-/**
- * Boot-time config. Supabase URL + anon key are public values exposed
- * by the server's /api/config endpoint (anon key is public by design).
- */
 window.APP_CONFIG = {};
 
 async function loadAppConfig() {

@@ -1,7 +1,3 @@
-/**
- * Authentication: sign up, sign in, sign out, session restore.
- * Supabase persists tokens in localStorage automatically.
- */
 const Auth = {
   async getSession() {
     const sb = getSupabase();

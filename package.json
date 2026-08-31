@@ -1,6 +1,6 @@
 {
   "name": "apex-recomp-tracker",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Apex Recomp & Health Tracker - full-stack, mobile-responsive fitness tracker with Huawei Health Kit sleep integration",
   "main": "server/index.js",
   "scripts": {

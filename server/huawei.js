@@ -1,21 +1,16 @@
 /**
  * Huawei Health Kit integration layer.
+ * DEMO MODE (default): realistic sample sleep telemetry.
+ * REAL MODE: exchanges tokens and calls the Huawei Health Kit REST API.
  *
- * DEMO MODE (default): returns realistic sample sleep telemetry so the
- * dashboard is fully functional without Huawei console setup.
- *
- * REAL MODE: exchanges an authorization code for tokens and calls the
- * Huawei Health Kit REST API to read DT_CONTINUOUS_SLEEP and heart rate.
- *
- * Huawei sleep status codes (confirmed from official enumeration):
- *   1 = Light sleep, 2 = REM sleep, 3 = Deep sleep, 4 = Awake, 5 = Nap
+ * Sleep status codes: 1=Light, 2=REM, 3=Deep, 4=Awake, 5=Nap
  */
 
 const DEMO_SLEEP = {
   connected: true,
   source: 'demo',
   date: new Date().toISOString().slice(0, 10),
-  totalMinutes: 452, // 7h 32m
+  totalMinutes: 452,
   stages: {
     deep: { minutes: 105, label: 'Deep' },
     rem: { minutes: 98, label: 'REM' },
@@ -26,56 +21,34 @@ const DEMO_SLEEP = {
   note: 'Demo data — connect a real Huawei account for live telemetry.'
 };
 
-// Minimal in-memory token cache for a real deployment.
 const tokenCache = { accessToken: null, refreshToken: null, expiresAt: 0 };
 
 function isDemoMode() {
   return process.env.HUAWEI_DEMO_MODE !== 'false';
 }
 
-/**
- * Return today's sleep summary for the dashboard card.
- * In demo mode this is instant and always succeeds.
- */
 async function getSleepSummary() {
-  if (isDemoMode()) {
-    return DEMO_SLEEP;
-  }
+  if (isDemoMode()) return DEMO_SLEEP;
 
-  // ---- REAL MODE ----
-  // 1. Ensure a valid access token.
   await ensureAccessToken();
-
-  // 2. Query Huawei Health Kit REST API for DT_CONTINUOUS_SLEEP.
-  //    Timestamps are in NANOSECONDS (JS ms * 1_000_000).
   const now = Date.now();
-  const startNs = (now - 26 * 60 * 60 * 1000) * 1_000_000; // last 26h window
+  const startNs = (now - 26 * 60 * 60 * 1000) * 1_000_000;
   const endNs = now * 1_000_000;
 
   const res = await fetch(
     `${process.env.HUAWEI_API_BASE || 'https://health-api.cloud.huawei.com'}/healthkit/v1/dataCollectors`,
     {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${tokenCache.accessToken}`
-      },
-      body: JSON.stringify({
-        dataType: 'DT_CONTINUOUS_SLEEP',
-        startTime: startNs,
-        endTime: endNs
-      })
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenCache.accessToken}` },
+      body: JSON.stringify({ dataType: 'DT_CONTINUOUS_SLEEP', startTime: startNs, endTime: endNs })
     }
   );
 
   const json = await res.json();
 
-  // Known Huawei gotcha: empty HealthRecords array even when data exists.
   if (!json || !Array.isArray(json.healthRecords) || json.healthRecords.length === 0) {
     return {
-      connected: true,
-      source: 'live',
-      date: new Date().toISOString().slice(0, 10),
+      connected: true, source: 'live', date: new Date().toISOString().slice(0, 10),
       totalMinutes: 0,
       stages: { deep: { minutes: 0 }, rem: { minutes: 0 }, light: { minutes: 0 }, awake: { minutes: 0 } },
       restingHeartRate: null,
@@ -90,10 +63,6 @@ async function getSleepSummary() {
   return summary;
 }
 
-/**
- * Aggregate Huawei segment records (status code + start/end ns) into
- * per-stage minute totals.
- */
 function aggregateSleepSegments(records) {
   const stageMap = { 1: 'light', 2: 'rem', 3: 'deep', 4: 'awake', 5: 'awake' };
   const minutesByStage = { deep: 0, rem: 0, light: 0, awake: 0 };
@@ -104,7 +73,6 @@ function aggregateSleepSegments(records) {
     const start = Number(rec.startTime || rec.start_time || 0);
     const end = Number(rec.endTime || rec.end_time || 0);
     const mins = Math.max(0, (end - start) / 1_000_000_000 / 60);
-
     const stage = stageMap[code] || 'awake';
     minutesByStage[stage] += Math.round(mins);
     totalMinutes += Math.round(mins);
@@ -118,33 +86,16 @@ function aggregateSleepSegments(records) {
       light: { minutes: minutesByStage.light, label: 'Light' },
       awake: { minutes: minutesByStage.awake, label: 'Awake' }
     },
-    restingHeartRate: null // Huawei provides instantaneous HR, not resting — derive separately if needed.
+    restingHeartRate: null
   };
 }
 
-/**
- * Exchange a refresh token (or authorization code) for a fresh access token.
- * Token endpoint confirmed: /oauth2/v3/token
- */
 async function ensureAccessToken() {
-  if (tokenCache.accessToken && tokenCache.expiresAt > Date.now() + 60_000) {
-    return tokenCache.accessToken;
-  }
+  if (tokenCache.accessToken && tokenCache.expiresAt > Date.now() + 60_000) return tokenCache.accessToken;
 
   const body = tokenCache.refreshToken
-    ? {
-        grant_type: 'refresh_token',
-        refresh_token: tokenCache.refreshToken,
-        client_id: process.env.HUAWEI_CLIENT_ID,
-        client_secret: process.env.HUAWEI_CLIENT_SECRET
-      }
-    : {
-        grant_type: 'authorization_code',
-        code: tokenCache.authCode,
-        client_id: process.env.HUAWEI_CLIENT_ID,
-        client_secret: process.env.HUAWEI_CLIENT_SECRET,
-        redirect_uri: process.env.HUAWEI_REDIRECT_URI
-      };
+    ? { grant_type: 'refresh_token', refresh_token: tokenCache.refreshToken, client_id: process.env.HUAWEI_CLIENT_ID, client_secret: process.env.HUAWEI_CLIENT_SECRET }
+    : { grant_type: 'authorization_code', code: tokenCache.authCode, client_id: process.env.HUAWEI_CLIENT_ID, client_secret: process.env.HUAWEI_CLIENT_SECRET, redirect_uri: process.env.HUAWEI_REDIRECT_URI };
 
   const res = await fetch('https://oauth-login.cloud.huawei.com/oauth2/v3/token', {
     method: 'POST',
@@ -159,18 +110,9 @@ async function ensureAccessToken() {
   return tokenCache.accessToken;
 }
 
-/**
- * Connection status for the dashboard card.
- */
 async function getStatus() {
-  if (isDemoMode()) {
-    return { connected: true, mode: 'demo', label: 'Demo Mode' };
-  }
-  return {
-    connected: Boolean(tokenCache.accessToken || process.env.HUAWEI_CLIENT_ID),
-    mode: 'live',
-    label: 'Live'
-  };
+  if (isDemoMode()) return { connected: true, mode: 'demo', label: 'Demo Mode' };
+  return { connected: Boolean(tokenCache.accessToken || process.env.HUAWEI_CLIENT_ID), mode: 'live', label: 'Live' };
 }
 
 module.exports = { getSleepSummary, getStatus, isDemoMode };

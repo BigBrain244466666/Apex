@@ -1,6 +1,3 @@
-/**
- * Huawei sleep card: fetches + renders sleep telemetry from the backend.
- */
 const HuaweiCard = {
   async refresh() {
     const body = document.getElementById('huawei-body');

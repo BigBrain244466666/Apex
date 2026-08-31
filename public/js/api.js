@@ -1,6 +1,3 @@
-/**
- * Thin fetch helpers for backend proxy endpoints.
- */
 async function apiGet(url) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`GET ${url} failed (${res.status})`);

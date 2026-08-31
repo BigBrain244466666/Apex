@@ -2,30 +2,27 @@
  * Nutrition lookup proxy.
  * Searches Open Food Facts AND USDA FoodData Central in parallel,
  * then merges, dedupes, and ranks by macro completeness + source quality.
- *
- * USDA Foundation / SR Legacy (generic whole foods) are boosted because
- * they're the best match for foods like eggs, cheese, and sausage.
  */
 
 const OFF_BASE = 'https://world.openfoodfacts.org';
 
-/**
- * Search Open Food Facts v2 API.
- * Returns normalized hits with calories + macros per 100g.
- */
 async function searchOpenFoodFacts(query) {
-  const url = `${OFF_BASE}/api/v2/search?search_terms=${encodeURIComponent(query)}` +
-    `&page_size=15&fields=product_name,brands,nutriments,serving_size,serving_quantity` +
-    `&sort_by=unique_scans_n`;
+  const url = `${OFF_BASE}/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=15`;
 
   try {
     const res = await fetch(url, {
-      headers: { 'User-Agent': 'ApexRecompTracker/1.0 (personal use)' }
+      headers: { 'User-Agent': 'ApexRecompTracker/1.0 (personal fitness app)', 'Accept': 'application/json' }
     });
-    if (!res.ok) return [];
+
+    if (!res.ok) {
+      console.error(`[OFF] HTTP ${res.status} for "${query}"`);
+      return [];
+    }
 
     const json = await res.json();
     const products = json.products || [];
+    console.log(`[OFF] ${products.length} results for "${query}"`);
+
     return products
       .filter((p) => p.product_name && p.nutriments)
       .map((p) => ({
@@ -42,27 +39,30 @@ async function searchOpenFoodFacts(query) {
         }
       }));
   } catch (err) {
-    console.error('OFF search error:', err.message);
+    console.error('[OFF] fetch error:', err.message);
     return [];
   }
 }
 
-/**
- * Search USDA FoodData Central.
- * Nutrient IDs: 1003=protein, 1004=fat, 1005=carbs, 1008=energy-kcal.
- * dataType "Foundation" and "SR Legacy" are generic whole foods — boost these.
- */
 async function searchUSDA(query) {
   const key = process.env.USDA_API_KEY;
-  if (!key) return [];
+  if (!key) {
+    console.log('[USDA] No API key set — skipping (add USDA_API_KEY to .env for best results)');
+    return [];
+  }
 
   const url = `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(query)}&pageSize=20&api_key=${key}`;
 
   try {
     const res = await fetch(url);
-    if (!res.ok) return [];
+    if (!res.ok) {
+      console.error(`[USDA] HTTP ${res.status} for "${query}"`);
+      return [];
+    }
 
     const json = await res.json();
+    console.log(`[USDA] ${(json.foods || []).length} results for "${query}"`);
+
     return (json.foods || []).map((food) => {
       const get = (id) => {
         const n = food.foodNutrients?.find((x) => Number(x.nutrientId) === id);
@@ -83,17 +83,11 @@ async function searchUSDA(query) {
       };
     });
   } catch (err) {
-    console.error('USDA search error:', err.message);
+    console.error('[USDA] fetch error:', err.message);
     return [];
   }
 }
 
-/**
- * Rank hits by how useful they are for macro lookup.
- *  - Complete macro data (all 4 values) scores highest
- *  - USDA Foundation / SR Legacy (generic foods) get a boost
- *  - Shorter, cleaner names are preferred over long branded titles
- */
 function rankAndDedupe(hits) {
   const seen = new Set();
 
@@ -101,21 +95,11 @@ function rankAndDedupe(hits) {
     .filter((h) => h.name)
     .map((h) => {
       const p = h.per100g;
-      const completeness = [
-        p.calories != null,
-        p.protein != null,
-        p.fat != null,
-        p.carbs != null
-      ].filter(Boolean).length;
-
+      const completeness = [p.calories != null, p.protein != null, p.fat != null, p.carbs != null].filter(Boolean).length;
       let score = completeness * 10;
-
       if (h.dataType === 'Foundation' || h.dataType === 'SR Legacy') score += 6;
       else if (h.source === 'usda') score += 2;
-
-      // Penalize very long names (usually noisy branded products)
       score -= Math.min(h.name.length / 40, 2);
-
       return { ...h, score };
     })
     .sort((a, b) => b.score - a.score)
@@ -132,23 +116,19 @@ function normalizeName(name) {
   return String(name).toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
-/**
- * Combined search: both APIs in parallel, merged + ranked.
- */
 async function searchFood(query) {
   const q = (query || '').trim();
   if (!q) return [];
 
-  const [offHits, usdaHits] = await Promise.allSettled([
-    searchOpenFoodFacts(q),
-    searchUSDA(q)
-  ]);
+  const [offHits, usdaHits] = await Promise.allSettled([searchOpenFoodFacts(q), searchUSDA(q)]);
 
   let hits = [];
   if (offHits.status === 'fulfilled') hits = hits.concat(offHits.value);
   if (usdaHits.status === 'fulfilled') hits = hits.concat(usdaHits.value);
 
-  return rankAndDedupe(hits);
+  const ranked = rankAndDedupe(hits);
+  console.log(`[Nutrition] "${q}" → ${ranked.length} total merged hits`);
+  return ranked;
 }
 
 module.exports = { searchFood };

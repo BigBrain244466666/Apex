@@ -1,7 +1,6 @@
 -- Run this in Supabase SQL Editor (Dashboard > SQL > New query)
 -- Creates the tables + Row Level Security for Apex Recomp & Health Tracker
 
--- ============ PROFILES ============
 create table if not exists profiles (
   user_id uuid primary key references auth.users(id) on delete cascade,
   weight_lbs numeric default 173,
@@ -18,14 +17,10 @@ create table if not exists profiles (
 
 alter table profiles enable row level security;
 
-create policy "profiles_select_own" on profiles
-  for select using (auth.uid() = user_id);
-create policy "profiles_insert_own" on profiles
-  for insert with check (auth.uid() = user_id);
-create policy "profiles_update_own" on profiles
-  for update using (auth.uid() = user_id);
+create policy "profiles_select_own" on profiles for select using (auth.uid() = user_id);
+create policy "profiles_insert_own" on profiles for insert with check (auth.uid() = user_id);
+create policy "profiles_update_own" on profiles for update using (auth.uid() = user_id);
 
--- ============ MEAL LOGS ============
 create table if not exists meal_logs (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users(id) on delete cascade,
@@ -40,16 +35,11 @@ create table if not exists meal_logs (
 
 alter table meal_logs enable row level security;
 
-create policy "meal_logs_select_own" on meal_logs
-  for select using (auth.uid() = user_id);
-create policy "meal_logs_insert_own" on meal_logs
-  for insert with check (auth.uid() = user_id);
-create policy "meal_logs_update_own" on meal_logs
-  for update using (auth.uid() = user_id);
-create policy "meal_logs_delete_own" on meal_logs
-  for delete using (auth.uid() = user_id);
+create policy "meal_logs_select_own" on meal_logs for select using (auth.uid() = user_id);
+create policy "meal_logs_insert_own" on meal_logs for insert with check (auth.uid() = user_id);
+create policy "meal_logs_update_own" on meal_logs for update using (auth.uid() = user_id);
+create policy "meal_logs_delete_own" on meal_logs for delete using (auth.uid() = user_id);
 
--- ============ VITALS (daily weigh-ins + weekly trends) ============
 create table if not exists vitals (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users(id) on delete cascade,
@@ -63,15 +53,14 @@ create table if not exists vitals (
 
 alter table vitals enable row level security;
 
-create policy "vitals_select_own" on vitals
-  for select using (auth.uid() = user_id);
-create policy "vitals_insert_own" on vitals
-  for insert with check (auth.uid() = user_id);
-create policy "vitals_update_own" on vitals
-  for update using (auth.uid() = user_id);
-create policy "vitals_delete_own" on vitals
-  for delete using (auth.uid() = user_id);
+create policy "vitals_select_own" on vitals for select using (auth.uid() = user_id);
+create policy "vitals_insert_own" on vitals for insert with check (auth.uid() = user_id);
+create policy "vitals_update_own" on vitals for update using (auth.uid() = user_id);
+create policy "vitals_delete_own" on vitals for delete using (auth.uid() = user_id);
 
--- Optional: index for fast daily lookups
 create index if not exists meal_logs_user_date_idx on meal_logs (user_id, meal_date);
 create index if not exists vitals_user_date_idx on vitals (user_id, log_date desc);
+
+-- Fix the signup trigger conflict (drop the auto-created one)
+drop trigger if exists on_auth_user_created on auth.users;
+drop function if exists public.handle_new_user() cascade;
