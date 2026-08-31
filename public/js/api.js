@@ -1,17 +1,15 @@
 /**
- * API helper that routes to the right backend depending on where
- * the app is hosted:
- *  - localhost  → the Express server (/api/...)
- *  - Netlify    → Netlify Functions (/.netlify/functions/...)
+ * API helpers that route correctly on BOTH local and Netlify.
+ *
+ * Local:   Express server at /api/nutrition/search
+ * Netlify: Function at /.netlify/functions/nutrition-search
  */
 
 const IS_LOCAL =
   window.location.hostname === 'localhost' ||
   window.location.hostname === '127.0.0.1';
 
-const API_BASE = IS_LOCAL ? '/api' : '/.netlify/functions';
-
-// Expose for other modules (e.g., huaweiCard).
+// Expose so other modules (huawei.js) know where we are.
 window.IS_LOCAL = IS_LOCAL;
 
 async function apiGet(url) {
@@ -30,12 +28,12 @@ async function apiPost(url, body) {
   return res.json();
 }
 
-function nutritionSearchUrl() {
-  return `${API_BASE}/nutrition-search`;
-}
-
 async function searchNutrition(query) {
-  // On Netlify the function reads USDA_API_KEY from env vars (no key in browser).
-  const data = await apiPost(nutritionSearchUrl(), { query });
+  // Correct paths for each environment.
+  const url = IS_LOCAL
+    ? '/api/nutrition/search'               // Express route (slash)
+    : '/.netlify/functions/nutrition-search'; // Netlify function (hyphen)
+
+  const data = await apiPost(url, { query });
   return data.hits || [];
 }
