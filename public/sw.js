@@ -1,4 +1,4 @@
-const CACHE_NAME = 'apex-recomp-v5'; // bumped to force update
+const CACHE_NAME = 'apex-recomp-v6'; // bumped again to force update
 const STATIC_ASSETS = [
   '/css/styles.css',
   '/manifest.json',
@@ -10,7 +10,7 @@ const STATIC_ASSETS = [
   '/js/mealLog.js',
   '/js/vitals.js',
   '/js/gym.js',
-  '/js/huaweiCard.js',
+  '/js/huawei.js',
   '/js/app.js'
 ];
 
@@ -31,8 +31,7 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
-  // Navigation requests (the page HTML) → NETWORK-FIRST, so index.html is
-  // always fresh. Fall back to cache only when offline.
+  // Navigation (page HTML) → NETWORK-FIRST so index.html is always fresh.
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
@@ -46,8 +45,19 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static assets → cache-first with network fallback.
+  // CSS/JS assets → stale-while-revalidate so updates appear on next load.
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
+    caches.match(event.request).then((cached) => {
+      const fetchPromise = fetch(event.request)
+        .then((res) => {
+          if (res && res.status === 200) {
+            const copy = res.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
+          return res;
+        })
+        .catch(() => cached);
+      return cached || fetchPromise;
+    })
   );
 });

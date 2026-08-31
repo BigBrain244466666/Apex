@@ -16,31 +16,3 @@
     }
   ]
 }
-```
-
-Replace `public/manifest.json` with that, then hard refresh (`Ctrl + Shift + R`). The error will disappear.
-
----
-
-## Why this happened
-
-Your earlier `manifest.json` (from the older ZIP) listed:
-
-- `/icons/icon-192.png`
-- `/icons/icon-512.png`
-
-…but those PNGs were never created — I only made `icon.svg`. So the browser tried to fetch the PNGs, failed, and showed that warning.
-
-The fix above makes the manifest reference only the SVG, which **does** exist.
-
----
-
-## One caveat for your Huawei phone
-
-Chrome on Android handles SVG icons fine, so **this works for you**. If you ever want a PNG fallback for maximum compatibility (some very old Android webviews), just:
-
-1. Convert `icon.svg` to a 192×192 PNG (any free converter)
-2. Save as `public/icons/icon-192.png`
-3. Add it to the manifest next to the SVG
-
-But for your Huawei with the current browser, the SVG-only manifest is perfectly fine. The error is cosmetic and won't affect the app's function — but now it's gone anyway.

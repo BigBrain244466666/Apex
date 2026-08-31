@@ -1,4 +1,4 @@
-/* ============ Apex Recomp & Health Tracker — FINAL consolidated styles ============ */
+/* ============ Apex Recomp & Health Tracker — COMPLETE styles ============ */
 :root {
   --bg: #0d1117;
   --surface: #161b22;
@@ -120,7 +120,8 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 }
 
 /* All major sections are full-width stacked — predictable + clean */
-.macro-card, .meal-card, .settings-card, .huawei-tiles, .trends-card { grid-column: 1 / -1; }
+.macro-card, .meal-card, .settings-card, .trends-card,
+.huawei-tiles, .huawei-note { grid-column: 1 / -1; }
 
 .card {
   background: var(--surface); border: 1px solid var(--border);
@@ -324,9 +325,7 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 
 /* ============ Responsive ============ */
 @media (min-width: 900px) {
-  .metrics-card, .workouts-card {
-    grid-column: span 6;
-  }
+  .metrics-card, .workouts-card { grid-column: span 6; }
 }
 
 @media (max-width: 1100px) {
@@ -335,6 +334,7 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 
 @media (max-width: 900px) {
   .macro-bars { grid-template-columns: repeat(2, 1fr); }
+  .huawei-tiles { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 640px) {
@@ -351,36 +351,21 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
   .meal-type-grid { grid-template-columns: 1fr; }
   .new-workout-row input { flex: 1 1 100%; }
   .set-row { grid-template-columns: 0.5fr 0.8fr 0.6fr 0.8fr auto; font-size: 0.75rem; }
-  .huawei-tiles { grid-template-columns: repeat(2, 1fr); }
-  .settings-row { gap: 0.5rem; }
-  .settings-label { margin-left: 0; width: 100%; }
-}
 
-/* ============ Mobile fix: Huawei section full-width ============ */
-@media (max-width: 640px) {
+  /* Huawei mobile fix: full-width stacked tiles + stacked settings row */
   .huawei-tiles {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
   }
-
-  .huawei-tiles .tile {
-    width: 100%;
-  }
+  .huawei-tiles .tile { width: 100%; }
 
   .settings-row {
     flex-direction: column;
     align-items: stretch;
     gap: 0.75rem;
   }
-
-  .settings-row .settings-label {
-    margin-left: 0;
-    width: 100%;
-  }
-
+  .settings-row .settings-label { margin-left: 0; width: 100%; }
   .settings-row .switch,
-  .settings-row .btn {
-    align-self: flex-start;
-  }
+  .settings-row .btn { align-self: flex-start; }
 }
