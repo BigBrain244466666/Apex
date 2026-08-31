@@ -3,7 +3,7 @@ const App = {
   authBound: false,
   appBound: false,
   userId: null,
-  loadToken: 0, // increments on every load; stale loads get discarded
+  loadToken: 0,
 
   async boot() {
     await loadAppConfig();
@@ -88,6 +88,7 @@ const App = {
       MealLog.bindUI();
       Vitals.bindForm();
       Gym.bindUI();
+      Huawei.bindUI();
     }
 
     this.loadDashboardData();
@@ -113,17 +114,15 @@ const App = {
   },
 
   async loadDashboardData() {
-    // Token: if another load starts while this one is in flight,
-    // this one gets stale and must NOT write its results.
     const token = ++this.loadToken;
 
     await Dashboard.ensureProfile(this.userId);
+    await Huawei.init(this.userId);
 
     await Promise.all([
       MealLog.load(this.userId, token),
       Vitals.load(this.userId, token),
-      Gym.load(this.userId, token),
-      HuaweiCard.refresh()
+      Gym.load(this.userId, token)
     ]);
 
     if (token === this.loadToken) {
@@ -140,7 +139,7 @@ const App = {
   }
 };
 
-// ============ PWA service worker registration ============
+// PWA service worker registration
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch((err) => {

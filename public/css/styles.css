@@ -1,3 +1,4 @@
+/* ============ Apex Recomp & Health Tracker — ALL styles ============ */
 :root {
   --bg: #0d1117;
   --surface: #161b22;
@@ -110,7 +111,7 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 }
 .nav-tab.active { background: var(--accent); color: #fff; }
 
-/* ============ Dashboard layout (full-width 12-col) ============ */
+/* ============ Dashboard layout ============ */
 .dashboard {
   display: grid;
   gap: 1.25rem;
@@ -119,8 +120,7 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
   width: 100%;
 }
 .macro-card { grid-column: 1 / -1; }
-.huawei-card { grid-column: span 4; }
-.meal-card { grid-column: span 8; }
+.meal-card { grid-column: 1 / -1; }
 
 .card {
   background: var(--surface); border: 1px solid var(--border);
@@ -145,18 +145,14 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 .progress-fill { height: 100%; border-radius: 999px; transition: width 0.4s ease; }
 .macro-remaining { font-size: 0.78rem; color: var(--muted); margin-top: 0.25rem; text-align: right; }
 
-/* ============ Huawei sleep card ============ */
+/* ============ Status badge ============ */
 .status-badge {
   font-size: 0.7rem; font-weight: 700; padding: 0.25rem 0.7rem; border-radius: 999px;
   background: var(--surface-2); color: var(--muted); border: 1px solid var(--border);
+  display: inline-block;
 }
 .status-badge.ok { color: var(--green); border-color: var(--green); }
 .status-badge.err { color: var(--red); border-color: var(--red); }
-.huawei-body { display: flex; flex-direction: column; gap: 1rem; }
-.sleep-total { font-size: 2rem; font-weight: 700; }
-.sleep-stage-list { display: flex; flex-direction: column; gap: 0.7rem; }
-.sleep-stage-head { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.25rem; }
-.huawei-footer { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem; color: var(--muted); }
 
 /* ============ Meals ============ */
 .meal-group {
@@ -354,10 +350,65 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 .meal-macro-grid label { font-size: 0.75rem; color: var(--muted); }
 .meal-macro-grid input { margin-top: 0.25rem; }
 
+/* ============ Huawei settings + toggle ============ */
+.settings-card { grid-column: 1 / -1; }
+
+.settings-row {
+  display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+  padding: 0.75rem 0;
+}
+.settings-row .settings-label { margin-left: auto; color: var(--muted); font-size: 0.85rem; }
+
+.switch { position: relative; display: inline-block; width: 48px; height: 26px; flex-shrink: 0; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider {
+  position: absolute; cursor: pointer; inset: 0;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 999px; transition: 0.25s;
+}
+.slider:before {
+  content: ""; position: absolute; height: 18px; width: 18px;
+  left: 3px; top: 3px; background: var(--muted);
+  border-radius: 50%; transition: 0.25s;
+}
+.switch input:checked + .slider { background: var(--accent); border-color: var(--accent); }
+.switch input:checked + .slider:before { transform: translateX(22px); background: #fff; }
+
+/* ============ Huawei health tiles ============ */
+.huawei-tiles {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1rem;
+}
+
+.tile {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 1.25rem; min-width: 0;
+}
+.tile-title {
+  font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.tile-value { font-size: 1.9rem; font-weight: 700; line-height: 1.1; }
+.tile-unit { font-size: 1rem; color: var(--muted); margin-left: 0.2rem; }
+.tile-sub { font-size: 0.78rem; color: var(--muted); margin-top: 0.2rem; }
+
+.mini-stage { margin-top: 0.45rem; }
+.mini-stage-head { display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 0.2rem; }
+.mini-stage-head b { font-weight: 600; }
+
+.huawei-note {
+  grid-column: 1 / -1;
+  font-size: 0.8rem; color: var(--muted);
+  margin-top: -0.25rem;
+}
+
 /* ============ Responsive ============ */
 @media (max-width: 1100px) {
-  .huawei-card, .meal-card { grid-column: 1 / -1; }
   .metrics-card, .workouts-card { grid-column: 1 / -1; }
+  .huawei-tiles { grid-template-columns: repeat(3, 1fr); }
 }
 
 @media (max-width: 900px) {
@@ -371,7 +422,6 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
   .auth-card { padding: 1.5rem; }
   .macro-bars { grid-template-columns: 1fr; }
   .meal-macro-grid, .vitals-grid { grid-template-columns: repeat(2, 1fr); }
-  .sleep-total { font-size: 1.6rem; }
   .serving-row { flex-wrap: wrap; }
   .serving-unit, .serving-note { padding-bottom: 0; }
   .meal-item-row { grid-template-columns: 1fr auto; }
@@ -382,4 +432,7 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
   .add-set-row { flex-wrap: wrap; }
   .add-set-row input { flex: 1 1 30%; }
   .set-row { grid-template-columns: 0.5fr 0.8fr 0.6fr 0.8fr auto; font-size: 0.75rem; }
+  .huawei-tiles { grid-template-columns: repeat(2, 1fr); }
+  .settings-row { gap: 0.5rem; }
+  .settings-label { margin-left: 0; width: 100%; }
 }

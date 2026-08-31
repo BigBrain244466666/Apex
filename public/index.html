@@ -42,7 +42,7 @@
     </div>
   </div>
 
-  <!-- ============ APP (dashboard + gym) ============ -->
+  <!-- ============ APP ============ -->
   <div id="dashboard-view" class="view hidden">
     <header class="topbar">
       <div class="topbar-brand">Apex<span>Recomp</span></div>
@@ -55,22 +55,55 @@
 
     <!-- ============ PAGE: DASHBOARD ============ -->
     <main id="page-dashboard" class="dashboard">
+      <!-- Macro progress -->
       <section class="card macro-card">
         <h2 class="card-title">Daily Macros</h2>
         <p class="card-sub" id="macro-date"></p>
         <div id="macro-bars" class="macro-bars"></div>
       </section>
 
-      <section class="card huawei-card">
-        <div class="card-head">
-          <h2 class="card-title">Sleep</h2>
-          <span id="huawei-status-badge" class="status-badge">…</span>
-        </div>
-        <div id="huawei-body" class="huawei-body">
-          <p class="muted">Loading sleep data…</p>
+      <!-- Huawei settings + master toggle -->
+      <section class="card settings-card">
+        <div class="settings-row">
+          <div>
+            <h3 class="card-title">Huawei Health</h3>
+            <span id="huawei-status-badge" class="status-badge">…</span>
+          </div>
+          <span class="settings-label">Enable watch data</span>
+          <label class="switch">
+            <input id="huawei-toggle" type="checkbox" checked />
+            <span class="slider"></span>
+          </label>
+          <button id="huawei-connect-btn" class="btn btn-outline">Connect Huawei</button>
         </div>
       </section>
 
+      <!-- Huawei tiles (hidden when toggle off) -->
+      <section id="huawei-tiles-section" class="huawei-tiles">
+        <div class="tile">
+          <div class="tile-title">Sleep</div>
+          <div id="tile-sleep"><p class="muted">—</p></div>
+        </div>
+        <div class="tile">
+          <div class="tile-title">Steps</div>
+          <div id="tile-steps"><p class="muted">—</p></div>
+        </div>
+        <div class="tile">
+          <div class="tile-title">Calories</div>
+          <div id="tile-calories"><p class="muted">—</p></div>
+        </div>
+        <div class="tile">
+          <div class="tile-title">Heart Rate</div>
+          <div id="tile-heart"><p class="muted">—</p></div>
+        </div>
+        <div class="tile">
+          <div class="tile-title">SpO₂</div>
+          <div id="tile-spo2"><p class="muted">—</p></div>
+        </div>
+        <div id="huawei-note" class="huawei-note"></div>
+      </section>
+
+      <!-- Meals -->
       <section class="card meal-card">
         <div class="card-head">
           <h2 class="card-title">Meals</h2>
@@ -83,6 +116,7 @@
 
     <!-- ============ PAGE: GYM ============ -->
     <main id="page-gym" class="gym-page hidden">
+      <!-- Body metrics / vitals -->
       <section class="card metrics-card">
         <h2 class="card-title">Body Metrics</h2>
         <form id="vitals-form" class="vitals-form">
@@ -105,6 +139,7 @@
         </div>
       </section>
 
+      <!-- Workouts -->
       <section class="card workouts-card">
         <div class="card-head">
           <h2 class="card-title">Workouts</h2>
@@ -116,6 +151,7 @@
         <div id="workouts-container"></div>
       </section>
 
+      <!-- Trends -->
       <section class="card trends-card">
         <div class="card-head">
           <h2 class="card-title">Trends</h2>
@@ -181,7 +217,7 @@
   <script src="/js/mealLog.js"></script>
   <script src="/js/vitals.js"></script>
   <script src="/js/gym.js"></script>
-  <script src="/js/huaweiCard.js"></script>
+  <script src="/js/huawei.js"></script>
   <script src="/js/app.js"></script>
 </body>
 </html>
