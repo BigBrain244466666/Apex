@@ -1,9 +1,3 @@
-/**
- * History module: past daily intakes + completed workouts + trends.
- * Two dropdowns: meal date, workout date.
- * Shows macros per day and full workout detail.
- */
-
 const History = {
   bound: false,
   mealDates: [],
@@ -25,22 +19,12 @@ const History = {
   async load(userId, token) {
     const sb = getSupabase();
 
-    // ---- Meal history dates ----
-    const { data: mealDays, error: mealErr } = await sb.from('meal_items')
-      .select('meal_id')
-      .eq('user_id', userId);
-
-    if (mealErr) return console.error(mealErr.message);
-
-    // Get unique meal dates from meals table.
     const { data: meals } = await sb.from('meals')
       .select('meal_date')
       .eq('user_id', userId)
       .order('meal_date', { ascending: false });
 
     const uniqueDates = [...new Set((meals || []).map((m) => m.meal_date))].sort((a, b) => b.localeCompare(a));
-
-    // Exclude today from history (today is on Dashboard).
     const today = new Date().toISOString().slice(0, 10);
     this.mealDates = uniqueDates.filter((d) => d !== today);
 
@@ -97,15 +81,22 @@ const History = {
     const { data: meals } = await sb.from('meals')
       .select('id, meal_type')
       .eq('user_id', userId)
-      .eq('meal_date', date);
+      .eq('meal_date', date)
+      .order('created_at', { ascending: true });
 
     if (!meals || !meals.length) {
       container.innerHTML = '<p class="muted">No meals logged on this day.</p>';
       return;
     }
 
-    let dayTotals = { calories: 0, protein: 0, fat: 0, carbs: 0 };
-    const groups = [];
+    let grand = { calories: 0, protein: 0, fat: 0, carbs: 0 };
+    let html = `
+      <div class="table-wrap">
+        <table class="data-table history-table">
+          <thead>
+            <tr><th>Meal</th><th>Food</th><th>Cal</th><th>Protein</th><th>Fat</th><th>Carbs</th></tr>
+          </thead>
+          <tbody>`;
 
     for (const meal of meals) {
       const { data: items } = await sb.from('meal_items')
@@ -114,33 +105,62 @@ const History = {
         .order('created_at', { ascending: true });
 
       const mt = mealTotalsFromItems(items || []);
-      dayTotals.calories += mt.calories;
-      dayTotals.protein += mt.protein;
-      dayTotals.fat += mt.fat;
-      dayTotals.carbs += mt.carbs;
+      grand.calories += mt.calories;
+      grand.protein += mt.protein;
+      grand.fat += mt.fat;
+      grand.carbs += mt.carbs;
 
-      groups.push({ meal_type: meal.meal_type, items: items || [], totals: mt });
+      const itemsList = items || [];
+      if (itemsList.length === 0) {
+        html += `
+          <tr class="meal-subtotal-row">
+            <td>${capitalize(meal.meal_type)}</td>
+            <td class="muted">No foods</td>
+            <td>0</td><td>0</td><td>0</td><td>0</td>
+          </tr>`;
+        continue;
+      }
+
+      itemsList.forEach((it, idx) => {
+        const mealCell = idx === 0
+          ? `<td rowspan="${itemsList.length}" class="meal-type-cell">${capitalize(meal.meal_type)}</td>`
+          : '';
+
+        html += `
+          <tr>
+            ${mealCell}
+            <td class="food-name-cell">${escapeHtml(it.food_name)}</td>
+            <td>${it.calories}</td>
+            <td>${it.protein}</td>
+            <td>${it.fat}</td>
+            <td>${it.carbs}</td>
+          </tr>`;
+      });
+
+      html += `
+        <tr class="meal-subtotal-row">
+          <td class="muted">Subtotal</td>
+          <td></td>
+          <td><b>${Math.round(mt.calories)}</b></td>
+          <td><b>${Math.round(mt.protein)}</b></td>
+          <td><b>${Math.round(mt.fat)}</b></td>
+          <td><b>${Math.round(mt.carbs)}</b></td>
+        </tr>`;
     }
 
-    container.innerHTML = `
-      <div class="history-day-totals">
-        <div class="hist-stat"><b>${Math.round(dayTotals.calories)}</b> kcal</div>
-        <div class="hist-stat"><b>${Math.round(dayTotals.protein)}</b>g protein</div>
-        <div class="hist-stat"><b>${Math.round(dayTotals.fat)}</b>g fat</div>
-        <div class="hist-stat"><b>${Math.round(dayTotals.carbs)}</b>g carbs</div>
-      </div>
-      ${groups.map((g) => `
-        <div class="hist-meal-group">
-          <div class="hist-meal-head">
-            <span>${capitalize(g.meal_type)}</span>
-            <span class="muted">${Math.round(g.totals.calories)} kcal · P ${Math.round(g.totals.protein)} · F ${Math.round(g.totals.fat)} · C ${Math.round(g.totals.carbs)}</span>
-          </div>
-          ${g.items.map((it) => `
-            <div class="hist-meal-item">${escapeHtml(it.food_name)} — ${it.calories} kcal · P ${it.protein} · F ${it.fat} · C ${it.carbs}</div>
-          `).join('')}
-        </div>
-      `).join('')}
-    `;
+    html += `
+          <tr class="meal-grand-total-row">
+            <td colspan="2"><b>Day Total</b></td>
+            <td><b>${Math.round(grand.calories)}</b></td>
+            <td><b>${Math.round(grand.protein)}</b></td>
+            <td><b>${Math.round(grand.fat)}</b></td>
+            <td><b>${Math.round(grand.carbs)}</b></td>
+          </tr>
+          </tbody>
+        </table>
+      </div>`;
+
+    container.innerHTML = html;
   },
 
   async renderWorkoutDay(date) {
@@ -159,7 +179,8 @@ const History = {
       .select('id, workout_date, start_time')
       .eq('user_id', userId)
       .eq('completed', true)
-      .eq('workout_date', date);
+      .eq('workout_date', date)
+      .order('created_at', { ascending: true });
 
     if (!workouts || !workouts.length) {
       container.innerHTML = '<p class="muted">No completed workouts on this day.</p>';
@@ -174,13 +195,21 @@ const History = {
         .eq('workout_id', w.id)
         .order('created_at', { ascending: true });
 
-      let volume = 0;
+      const timeLabel = formatTime12(w.start_time);
+      let workoutVolume = 0;
 
-      html += `<div class="hist-workout-card">
-        <div class="hist-workout-head">
-          <span>${formatDate(w.workout_date)}</span>
-          <span class="muted">${formatTime12(w.start_time)}</span>
-        </div>`;
+      html += `
+        <div class="hist-workout-block">
+          <div class="hist-workout-head">
+            <span>${formatDate(w.workout_date)}</span>
+            <span class="muted">${timeLabel}</span>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table history-table">
+              <thead>
+                <tr><th>Exercise</th><th>Set</th><th>Weight (lb)</th><th>Reps</th><th>e1RM</th></tr>
+              </thead>
+              <tbody>`;
 
       for (const ex of exercises || []) {
         const { data: sets } = await sb.from('exercise_sets')
@@ -188,27 +217,55 @@ const History = {
           .eq('exercise_id', ex.id)
           .order('set_number', { ascending: true });
 
+        const setsList = sets || [];
         let exVolume = 0;
         let bestE1rm = 0;
-        for (const s of sets || []) {
+
+        for (const s of setsList) {
           exVolume += (Number(s.weight) || 0) * (Number(s.reps) || 0);
           bestE1rm = Math.max(bestE1rm, e1rm(s.weight, s.reps));
         }
-        volume += exVolume;
+        workoutVolume += exVolume;
+
+        if (setsList.length === 0) {
+          html += `
+            <tr>
+              <td>${escapeHtml(ex.exercise_name)}</td>
+              <td class="muted" colspan="4">No sets</td>
+            </tr>`;
+          continue;
+        }
+
+        setsList.forEach((s, idx) => {
+          const exerciseCell = idx === 0
+            ? `<td rowspan="${setsList.length}" class="exercise-cell">${escapeHtml(ex.exercise_name)}</td>`
+            : '';
+          html += `
+            <tr>
+              ${exerciseCell}
+              <td>${s.set_number}</td>
+              <td>${Number(s.weight) || 0}</td>
+              <td>${s.reps}</td>
+              <td>${e1rm(s.weight, s.reps) || '—'}</td>
+            </tr>`;
+        });
 
         html += `
-          <div class="hist-exercise">
-            <div class="hist-exercise-head">
-              <span>${escapeHtml(ex.exercise_name)}</span>
-              <span class="muted">${(sets || []).length} sets · ${exVolume} lb · est 1RM ${bestE1rm || '—'}</span>
-            </div>
-            <div class="hist-sets">
-              ${(sets || []).map((s) => `<span class="hist-set-chip">${Number(s.weight) || 0}×${s.reps}</span>`).join('')}
-            </div>
-          </div>`;
+          <tr class="exercise-subtotal-row">
+            <td class="muted">Subtotal</td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td><b>Best ${bestE1rm || '—'}</b></td>
+          </tr>`;
       }
 
-      html += `<div class="hist-workout-footer">Total volume: <b>${volume} lb</b></div></div>`;
+      html += `
+              </tbody>
+            </table>
+          </div>
+          <div class="hist-workout-footer">Total volume: <b>${workoutVolume} lb</b></div>
+        </div>`;
     }
 
     container.innerHTML = html;
@@ -226,7 +283,6 @@ const History = {
     const sb = getSupabase();
     const userId = (await sb.auth.getUser()).data.user.id;
 
-    // Last 14 dates, chronological.
     const dates = [...this.mealDates].reverse().slice(-14);
     const perDay = [];
 
@@ -290,8 +346,6 @@ const History = {
   }
 };
 
-// ============ Helpers ============
-
 function mealTotalsFromItems(items) {
   const t = { calories: 0, protein: 0, fat: 0, carbs: 0 };
   for (const it of items) {
@@ -318,7 +372,9 @@ function formatDate(dateStr) {
 
 function formatTime12(timeStr) {
   if (!timeStr) return '—';
-  const [h, m] = timeStr.split(':').map(Number);
+  const parts = timeStr.split(':');
+  const h = Number(parts[0]);
+  const m = Number(parts[1]);
   const period = h >= 12 ? 'PM' : 'AM';
   const h12 = h % 12 || 12;
   return `${h12}:${String(m).padStart(2, '0')} ${period}`;

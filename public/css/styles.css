@@ -109,7 +109,7 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 .nav-tab.active { background: var(--accent); color: #fff; }
 
 /* ============ Main layout ============ */
-.dashboard, .gym-page {
+.dashboard, .gym-page, .history-page {
   display: grid;
   gap: 1.25rem;
   padding: 1.25rem 1.5rem 3rem;
@@ -119,9 +119,8 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
   width: 100%;
 }
 
-/* All major sections are full-width stacked — predictable + clean */
 .macro-card, .meal-card, .settings-card, .trends-card,
-.huawei-tiles, .huawei-note { grid-column: 1 / -1; }
+.hist-card, .huawei-tiles, .huawei-note { grid-column: 1 / -1; }
 
 .card {
   background: var(--surface); border: 1px solid var(--border);
@@ -178,6 +177,7 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 .metrics-card, .workouts-card { grid-column: 1 / -1; }
 .new-workout-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .new-workout-row input { width: auto; flex: 1; min-width: 140px; }
+.new-workout-row input[type="time"] { width: auto; flex: 0 0 auto; min-width: 110px; }
 
 .workout-card {
   border: 1px solid var(--border); border-radius: 10px; margin-bottom: 1rem;
@@ -186,9 +186,21 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 .workout-header {
   display: flex; align-items: center; gap: 0.75rem;
   padding: 0.7rem 1rem; background: var(--surface); border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
 }
+.workout-header-info { display: flex; flex-direction: column; gap: 0.1rem; }
 .workout-date { font-weight: 700; }
+.workout-time { font-size: 0.75rem; }
 .workout-volume { margin-left: auto; font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+.complete-workout-btn {
+  color: var(--green);
+  border-color: var(--green);
+}
+.complete-workout-btn:hover {
+  background: rgba(46, 160, 67, 0.1);
+  color: var(--green);
+  border-color: var(--green);
+}
 .workout-exercises { padding: 0 0.75rem; }
 
 .exercise-block {
@@ -217,7 +229,8 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 .trend-select { max-width: 280px; }
 .trend-title { font-size: 1rem; margin-bottom: 0.75rem; }
 .trend-chart-wrap { margin-bottom: 1rem; }
-.trend-chart { width: 100%; height: 180px; display: block; }
+.trend-chart { width: 100%; height: 160px; display: block; }
+.trend-chart-title { margin-bottom: 0.4rem; }
 .trend-chart-labels { display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--muted); }
 
 /* ============ Vitals ============ */
@@ -231,6 +244,58 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 .data-table th { text-align: left; color: var(--muted); font-weight: 600; padding: 0.5rem 0.4rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
 .data-table td { padding: 0.5rem 0.4rem; border-bottom: 1px solid var(--surface-2); white-space: nowrap; }
 .notes-cell { max-width: 200px; white-space: normal !important; line-height: 1.3; color: var(--muted); }
+
+/* ============ History tables ============ */
+.hist-trend { margin-top: 1.5rem; }
+.history-table th { font-size: 0.75rem; }
+.history-table td { font-size: 0.82rem; }
+
+.meal-type-cell {
+  font-weight: 600;
+  vertical-align: top;
+  background: var(--surface-2);
+}
+.exercise-cell {
+  font-weight: 600;
+  vertical-align: top;
+  max-width: 180px;
+  white-space: normal !important;
+}
+
+.meal-subtotal-row td {
+  background: var(--surface-2);
+  font-size: 0.78rem;
+}
+.meal-grand-total-row td {
+  background: var(--surface);
+  font-size: 0.85rem;
+  border-top: 2px solid var(--border);
+}
+.exercise-subtotal-row td {
+  background: var(--surface-2);
+  font-size: 0.78rem;
+}
+
+.hist-workout-block {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.hist-workout-head {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0.6rem 0.85rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  font-weight: 600; font-size: 0.9rem;
+}
+.hist-workout-footer {
+  padding: 0.5rem 0.85rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+}
 
 /* ============ Modals ============ */
 .modal { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; padding: 1.25rem; }
@@ -338,7 +403,7 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 }
 
 @media (max-width: 640px) {
-  .dashboard, .gym-page { padding: 1rem; gap: 1rem; }
+  .dashboard, .gym-page, .history-page { padding: 1rem; gap: 1rem; }
   .topbar { padding: 0.75rem 0.9rem; flex-wrap: wrap; gap: 0.5rem; }
   .nav-tab { padding: 0.4rem 0.7rem; font-size: 0.85rem; }
   .auth-card { padding: 1.5rem; }
@@ -352,7 +417,7 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
   .new-workout-row input { flex: 1 1 100%; }
   .set-row { grid-template-columns: 0.5fr 0.8fr 0.6fr 0.8fr auto; font-size: 0.75rem; }
 
-  /* Huawei mobile fix: full-width stacked tiles + stacked settings row */
+  /* Huawei mobile fix */
   .huawei-tiles {
     display: flex;
     flex-direction: column;
@@ -368,57 +433,10 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
   .settings-row .settings-label { margin-left: 0; width: 100%; }
   .settings-row .switch,
   .settings-row .btn { align-self: flex-start; }
-}
 
-
-# CSS Additions — append these to the END of public/css/styles.css
-
-Open `public/css/styles.css` and paste the following block at the very bottom
-(after all existing rules). This styles the History page, workout completion
-button, start time input, and all new history elements.
-
-```css
-/* ============ History page ============ */
-.history-page {
-  display: grid;
-  gap: 1.25rem;
-  padding: 1.25rem 1.5rem 3rem;
-  grid-template-columns: 1fr;
-  max-width: 1400px;
-  margin: 0 auto;
-  width: 100%;
-}
-.hist-card { grid-column: 1 / -1; }
-.hist-trend { margin-top: 1.5rem; }
-
-.history-day-totals {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-}
-.hist-stat {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.75rem;
-  text-align: center;
-  font-size: 0.8rem;
-  color: var(--muted);
-}
-.hist-stat b { display: block; font-size: 1.2rem; color: var(--text); }
-
-.hist-meal-group {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  margin-bottom: 0.75rem;
-  overflow: hidden;
-  background: var(--surface-2);
-}
-.hist-meal-head {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 0.6rem 0.85rem;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  font-weight: 600; font-size: 0.9rem;
+  .hist-workout-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
 }
