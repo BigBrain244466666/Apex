@@ -184,28 +184,36 @@ var App = {
         }
       });
 
+      // --- More dropdown setup (button, dropdown, and rebuild function) ---
       var moreBtn = document.getElementById('nav-more');
       var moreDropdown = document.getElementById('more-dropdown');
+
       if (moreBtn && moreDropdown) {
-        // --- FIX: remove the hidden class so the button can be shown on mobile ---
+        // 1. Remove the 'hidden' class from the button so CSS can show it on mobile
         moreBtn.classList.remove('hidden');
 
-        var itemsHtml = '';
-        document.querySelectorAll('[data-more="true"]').forEach(function (tab) {
-          // Skip the more button itself
-          if (tab.id === 'nav-more') return;
-          itemsHtml += '<button class="more-item" data-page-id="' + tab.id + '">' + tab.textContent.trim() + '</button>';
+        // 2. Toggle dropdown on button click
+        moreBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          moreDropdown.classList.toggle('hidden');
         });
-        moreDropdown.innerHTML = itemsHtml;
-        moreBtn.addEventListener('click', function (e) { e.stopPropagation(); moreDropdown.classList.toggle('hidden'); });
+
+        // 3. Click on a dropdown item → navigate
         moreDropdown.addEventListener('click', function (e) {
           var item = e.target.closest('.more-item');
           if (!item) return;
-          App.showPage(item.getAttribute('data-page-id').replace('nav-', ''));
-          moreDropdown.classList.add('hidden');
+          var page = item.getAttribute('data-page');
+          if (page) {
+            App.showPage(page);
+            moreDropdown.classList.add('hidden');
+          }
         });
+
+        // 4. Click outside → close dropdown
         document.addEventListener('click', function (e) {
-          if (!moreDropdown.classList.contains('hidden') && !moreDropdown.contains(e.target) && e.target !== moreBtn) {
+          if (!moreDropdown.classList.contains('hidden') &&
+              !moreDropdown.contains(e.target) &&
+              e.target !== moreBtn) {
             moreDropdown.classList.add('hidden');
           }
         });
@@ -235,6 +243,29 @@ var App = {
 
     this.loadDashboardData();
     this.startPolling();
+  },
+
+  // --- Rebuild the dropdown based on visible tabs (excluding hidden ones) ---
+  rebuildMoreDropdown: function () {
+    var moreDropdown = document.getElementById('more-dropdown');
+    if (!moreDropdown) return;
+
+    // Collect all tabs that are not the more button itself and are not hidden
+    var tabs = document.querySelectorAll('.nav-tab');
+    var itemsHtml = '';
+    tabs.forEach(function (tab) {
+      // Skip the more button
+      if (tab.id === 'nav-more') return;
+      // Skip tabs that are permanently hidden (e.g., admin for non-admin)
+      if (tab.classList.contains('hidden')) return;
+      // Only include tabs that are marked for the dropdown (data-more="true")
+      if (tab.getAttribute('data-more') !== 'true') return;
+      var label = tab.textContent.trim();
+      var pageId = tab.id.replace('nav-', '');
+      itemsHtml += '<button class="more-item" data-page="' + pageId + '">' + label + '</button>';
+    });
+
+    moreDropdown.innerHTML = itemsHtml;
   },
 
   startPolling: function () {
@@ -280,6 +311,8 @@ var App = {
         if (profileBtn) profileBtn.classList.add('hidden');
         this.showPage('admin');
         if (typeof Admin !== 'undefined') await Admin.load(this.userId, token);
+        // Rebuild dropdown after admin state is known
+        this.rebuildMoreDropdown();
         AuraLoading.hide(this.revealDashboard.bind(this));
         return;
       }
@@ -306,6 +339,9 @@ var App = {
       }
       toggle('meal-card-section', p.meals_enabled === false);
       toggle('huawei-tiles-section', p.huawei_enabled === false);
+
+      // Rebuild dropdown now that we know which tabs are visible
+      this.rebuildMoreDropdown();
 
       await this.refreshModules(token);
       if (typeof Dashboard.renderOverview === 'function') await Dashboard.renderOverview();

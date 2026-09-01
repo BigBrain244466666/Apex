@@ -978,3 +978,69 @@ html, body {
   margin: 0.75rem 0 0.4rem;
   font-size: 0.9rem;
 }
+
+/* ============ Top bar and nav — allow dropdown to overflow ============ */
+.topbar {
+  overflow: visible !important;  /* critical: let the dropdown spill out */
+}
+
+.nav-tabs {
+  position: relative;            /* anchor for absolute dropdown */
+  overflow: visible !important;  /* don't clip the dropdown */
+  max-width: 100%;
+}
+
+/* More button – hidden on desktop, shown on mobile */
+.nav-more-btn {
+  display: none !important;
+}
+
+/* On mobile: show More button, hide extra tabs, and float the dropdown */
+@media (max-width: 640px) {
+  [data-more="true"] {
+    display: none !important;
+  }
+
+  .nav-more-btn {
+    display: inline-flex !important;
+  }
+
+  .more-dropdown {
+    position: absolute;
+    top: 100%;                     /* directly below the nav bar */
+    right: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    padding: 0.4rem;
+    z-index: 9999;                 /* above everything */
+    min-width: 160px;
+    display: none;                 /* hidden by default */
+    flex-direction: column;
+    gap: 0.25rem;
+    max-height: 70vh;              /* limit height but still overlay */
+    overflow-y: auto;              /* scroll if too many items */
+  }
+
+  .more-dropdown:not(.hidden) {
+    display: flex !important;
+  }
+
+  .more-dropdown .more-item {
+    background: transparent;
+    border: none;
+    color: var(--text);
+    text-align: left;
+    padding: 0.55rem 0.8rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    white-space: nowrap;
+    width: 100%;
+  }
+
+  .more-dropdown .more-item:hover {
+    background: var(--surface-2);
+  }
+}
