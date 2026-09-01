@@ -1,73 +1,48 @@
-/**
- * Netlify Function: food search proxy.
- * Keeps the USDA API key server-side (from Netlify env vars).
- * No npm dependencies — uses built-in fetch (Node 18+).
- */
+export async function onRequest(context) {
+  const headers = {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*'
+  };
 
-const OFF_BASE = 'https://world.openfoodfacts.org';
-
-async function searchOpenFoodFacts(query) {
-  const url = `${OFF_BASE}/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=15`;
-
-  try {
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent': 'ApexRecompTracker/1.0 (personal fitness app)',
-        Accept: 'application/json'
-      }
-    });
-
-    if (!res.ok) {
-      console.error(`[OFF] HTTP ${res.status} for "${query}"`);
-      return [];
-    }
-
-    const json = await res.json();
-    const products = json.products || [];
-    console.log(`[OFF] ${products.length} results for "${query}"`);
-
-    return products
-      .filter((p) => p.product_name && p.nutriments)
-      .map((p) => ({
-        source: 'openfoodfacts',
-        dataType: 'Branded',
-        name: p.product_name,
-        brand: p.brands || '',
-        per100g: {
-          calories: p.nutriments['energy-kcal_100g'] || p.nutriments.energy_100g || null,
-          protein: p.nutriments.proteins_100g ?? null,
-          fat: p.nutriments.fat_100g ?? null,
-          carbs: p.nutriments.carbohydrates_100g ?? null
-        }
-      }));
-  } catch (err) {
-    console.error('[OFF] fetch error:', err.message);
-    return [];
-  }
-}
-
-async function searchUSDA(query, key) {
-  if (!key) {
-    console.log('[USDA] No key in Netlify env — skipping. Add USDA_API_KEY.');
-    return [];
+  // Handle CORS preflight.
+  if (context.request.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers });
   }
 
-  const url = `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(query)}&pageSize=20&api_key=${key}`;
+  let query = '';
 
-  try {
-    const res = await fetch(url);
-    if (!res.ok) {
-      console.error(`[USDA] HTTP ${res.status} for "${query}"`);
-      return [];
+  if (context.request.method === 'POST') {
+    try {
+      const body = await context.request.json();
+      query = body.query || '';
+    } catch (e) {
+      query = '';
     }
+  } else {
+    const url = new URL(context.request.url);
+    query = url.searchParams.get('query') || '';
+  }
 
-    const json = await res.json();
-    console.log(`[USDA] ${(json.foods || []).length} results for "${query}"`);
+  if (!query.trim()) {
+    return new Response(JSON.stringify({ hits: [] }), { headers });
+  }
 
-    return (json.foods || []).map((food) => {
-      const get = (id) => {
-        const n = food.foodNutrients?.find((x) => Number(x.nutrientId) === id);
-        return n?.value ?? null;
+  async function searchUSDA(q, key) {
+    if (!key) return [];
+    const res = await fetch(
+      'https://api.nal.usda.gov/fdc/v1/foods/search?query=' +
+        encodeURIComponent(q) +
+        '&pageSize=20&api_key=' +
+        key
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.foods || []).map(function (food) {
+      const get = function (id) {
+        const n = food.foodNutrients && food.foodNutrients.find(function (x) {
+          return Number(x.nutrientId) === id;
+        });
+        return n ? n.value : null;
       };
       return {
         source: 'usda',
@@ -82,78 +57,77 @@ async function searchUSDA(query, key) {
         }
       };
     });
-  } catch (err) {
-    console.error('[USDA] fetch error:', err.message);
-    return [];
   }
-}
 
-function rankAndDedupe(hits) {
+  async function searchOFF(q) {
+    const urlOff =
+      'https://world.openfoodfacts.org/cgi/search.pl?search_terms=' +
+      encodeURIComponent(q) +
+      '&search_simple=1&action=process&json=1&page_size=15';
+    try {
+      const res = await fetch(urlOff, {
+        headers: {
+          'User-Agent': 'ApexRecompTracker/1.0 (personal fitness app)',
+          Accept: 'application/json'
+        }
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data.products || [])
+        .filter(function (p) { return p.product_name && p.nutriments; })
+        .map(function (p) {
+          return {
+            source: 'openfoodfacts',
+            dataType: 'Branded',
+            name: p.product_name,
+            brand: p.brands || '',
+            per100g: {
+              calories: p.nutriments['energy-kcal_100g'] || p.nutriments.energy_100g || null,
+              protein: p.nutriments.proteins_100g != null ? p.nutriments.proteins_100g : null,
+              fat: p.nutriments.fat_100g != null ? p.nutriments.fat_100g : null,
+              carbs: p.nutriments.carbohydrates_100g != null ? p.nutriments.carbohydrates_100g : null
+            }
+          };
+        });
+    } catch (err) {
+      return [];
+    }
+  }
+
+  const [usdaHits, offHits] = await Promise.allSettled([
+    searchUSDA(query.trim(), context.env.USDA_API_KEY),
+    searchOFF(query.trim())
+  ]);
+
+  let hits = [];
+  if (usdaHits.status === 'fulfilled') hits = hits.concat(usdaHits.value);
+  if (offHits.status === 'fulfilled') hits = hits.concat(offHits.value);
+
+  // Dedupe and rank by macro completeness.
   const seen = new Set();
-
-  return hits
-    .filter((h) => h.name)
-    .map((h) => {
+  hits = hits
+    .filter(function (h) { return h.name; })
+    .map(function (h) {
       const p = h.per100g;
-      const completeness = [p.calories != null, p.protein != null, p.fat != null, p.carbs != null].filter(Boolean).length;
+      let completeness = 0;
+      if (p.calories != null) completeness++;
+      if (p.protein != null) completeness++;
+      if (p.fat != null) completeness++;
+      if (p.carbs != null) completeness++;
       let score = completeness * 10;
       if (h.dataType === 'Foundation' || h.dataType === 'SR Legacy') score += 6;
       else if (h.source === 'usda') score += 2;
       score -= Math.min(h.name.length / 40, 2);
-      return { ...h, score };
+      return { ...h, score: score };
     })
-    .sort((a, b) => b.score - a.score)
-    .filter((h) => {
-      const key = String(h.name).toLowerCase().replace(/[^a-z0-9]/g, '');
+    .sort(function (a, b) { return b.score - a.score; })
+    .filter(function (h) {
+      const key = h.name.toLowerCase().replace(/[^a-z0-9]/g, '');
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
     })
     .slice(0, 12);
+
+  return new Response(JSON.stringify({ hits: hits }), { headers });
 }
-
-exports.handler = async (event) => {
-  const headers = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type'
-  };
-
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 204, headers, body: '' };
-  }
-
-  try {
-    let query = '';
-    if (event.httpMethod === 'GET') {
-      query = event.queryStringParameters?.query || '';
-    } else {
-      const body = JSON.parse(event.body || '{}');
-      query = body.query || '';
-    }
-
-    if (!query.trim()) {
-      return { statusCode: 200, headers, body: JSON.stringify({ hits: [] }) };
-    }
-
-    const [offHits, usdaHits] = await Promise.allSettled([
-      searchOpenFoodFacts(query.trim()),
-      searchUSDA(query.trim(), process.env.USDA_API_KEY)
-    ]);
-
-    let hits = [];
-    if (offHits.status === 'fulfilled') hits = hits.concat(offHits.value);
-    if (usdaHits.status === 'fulfilled') hits = hits.concat(usdaHits.value);
-
-    const ranked = rankAndDedupe(hits);
-    return { statusCode: 200, headers, body: JSON.stringify({ hits: ranked }) };
-  } catch (err) {
-    console.error('[Nutrition] search error:', err.message);
-    return {
-      statusCode: 502,
-      headers,
-      body: JSON.stringify({ hits: [], error: err.message })
-    };
-  }
-};
