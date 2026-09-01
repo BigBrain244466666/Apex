@@ -187,8 +187,13 @@ var App = {
       var moreBtn = document.getElementById('nav-more');
       var moreDropdown = document.getElementById('more-dropdown');
       if (moreBtn && moreDropdown) {
+        // --- FIX: remove the hidden class so the button can be shown on mobile ---
+        moreBtn.classList.remove('hidden');
+
         var itemsHtml = '';
         document.querySelectorAll('[data-more="true"]').forEach(function (tab) {
+          // Skip the more button itself
+          if (tab.id === 'nav-more') return;
           itemsHtml += '<button class="more-item" data-page-id="' + tab.id + '">' + tab.textContent.trim() + '</button>';
         });
         moreDropdown.innerHTML = itemsHtml;
