@@ -1,5 +1,3 @@
-/* ============ Apex app — final with 1s loader-first reveal ============ */
-
 var AuraQuotes = [
   'The grind doesn\'t care how you feel. Show up.',
   'You\'re one workout from a better mood.',
@@ -18,28 +16,37 @@ var AuraLoading = {
   quoteTimer: null,
   shownAt: 0,
   hideTimer: null,
+  safetyTimer: null,
 
   show: function () {
     var el = document.getElementById('aura-loader');
     if (el) el.classList.remove('hidden-loader');
     this.shownAt = Date.now();
     this.startQuotes();
+
+    var self = this;
+    if (this.safetyTimer) clearTimeout(this.safetyTimer);
+    this.safetyTimer = setTimeout(function () { self.hide(); }, 8000);
   },
 
-  hide: function () {
+  hide: function (callback) {
     var self = this;
     var elapsed = Date.now() - this.shownAt;
-    var minTime = 2000;
+    var minTime = 2000; // 2-second buffer
 
     function doHide() {
       var el = document.getElementById('aura-loader');
       if (el) el.classList.add('hidden-loader');
       if (self.hideTimer) { clearTimeout(self.hideTimer); self.hideTimer = null; }
       if (self.quoteTimer) { clearInterval(self.quoteTimer); self.quoteTimer = null; }
+      if (self.safetyTimer) { clearTimeout(self.safetyTimer); self.safetyTimer = null; }
+      if (typeof callback === 'function') callback();
     }
 
     if (elapsed < minTime) {
-      if (!this.hideTimer) this.hideTimer = setTimeout(doHide, minTime - elapsed);
+      if (!this.hideTimer) {
+        this.hideTimer = setTimeout(doHide, minTime - elapsed);
+      }
     } else {
       doHide();
     }
@@ -59,15 +66,13 @@ var AuraLoading = {
     this.quoteTimer = setInterval(function () {
       var quoteEl = document.getElementById('aura-quote');
       if (!quoteEl) return;
-
       quoteEl.style.opacity = '0';
-
       setTimeout(function () {
         self.quoteIndex = (self.quoteIndex + 1) % AuraQuotes.length;
         quoteEl.textContent = AuraQuotes[self.quoteIndex];
         quoteEl.style.opacity = '1';
       }, 400);
-    }, 2000);
+    }, 2200);
   }
 };
 
@@ -79,7 +84,6 @@ var App = {
   loadToken: 0,
   currentPage: 'dashboard',
   pollTimer: null,
-  revealTimer: null,
 
   async boot() {
     AuraLoading.show();
@@ -102,32 +106,22 @@ var App = {
     if (session) {
       AuraLoading.show();
       authView.classList.add('hidden');
-      dashView.classList.add('hidden');   // keep hidden until loader is visible for 1s
+      dashView.classList.add('hidden'); // keep hidden until loader done
       this.userId = session.user.id;
       this.initApp();
-      // do NOT reveal here — completeLoad() will after 1s
     } else {
-      authView.classList.remove('hidden');
+      authView.classList.add('hidden');
       dashView.classList.add('hidden');
       this.initAuth();
-      AuraLoading.hide();
+      AuraLoading.hide(function () {
+        authView.classList.remove('hidden');
+      });
     }
   },
 
-  completeLoad() {
-    var self = this;
+  revealDashboard() {
     var dash = document.getElementById('dashboard-view');
-    if (!dash) return;
-
-    var elapsed = AuraLoading.shownAt ? Date.now() - AuraLoading.shownAt : 0;
-    var wait = Math.max(0, 1000 - elapsed); // reveal dashboard after 1s
-
-    if (this.revealTimer) clearTimeout(this.revealTimer);
-    this.revealTimer = setTimeout(function () {
-      dash.classList.remove('hidden');
-      AuraLoading.hide();
-      self.revealTimer = null;
-    }, wait);
+    if (dash) dash.classList.remove('hidden');
   },
 
   initAuth() {
@@ -148,7 +142,6 @@ var App = {
       submitBtn.textContent = m === 'login' ? 'Sign In' : 'Create Account';
       errEl.classList.add('hidden');
     }
-
     loginTab.addEventListener('click', function () { setMode('login'); });
     signupTab.addEventListener('click', function () { setMode('signup'); });
 
@@ -160,15 +153,8 @@ var App = {
       submitBtn.disabled = true;
       try {
         if (mode === 'signup') {
-          const signupResult = await Auth.signUp(email, password);
-
-          // If email confirmation is OFF, Supabase returns a session immediately.
-          if (signupResult.data && signupResult.data.session) {
-            // Already signed in — the auth state change will route to dashboard.
-            return;
-          }
-
-          // Confirmation is still ON — tell the user to check email.
+          var result = await Auth.signUp(email, password);
+          if (result.data && result.data.session) return;
           errEl.textContent = 'Check your email to confirm your account, then sign in.';
           errEl.classList.remove('hidden');
         } else {
@@ -187,13 +173,13 @@ var App = {
     if (!this.appBound) {
       this.appBound = true;
 
-      var logoutBtn = document.getElementById('logout-btn');
-      if (logoutBtn) {
-        logoutBtn.addEventListener('click', function () {
-          AuraLoading.show();
-          setTimeout(function () { Auth.signOut(); }, 2000);
-        });
-      }
+      // Sign out: show loader, then sign out after 2s
+      document.getElementById('logout-btn').addEventListener('click', function () {
+        AuraLoading.show();
+        setTimeout(function () {
+          Auth.signOut();
+        }, 2000);
+      });
 
       var navMap = {
         'nav-dashboard': 'dashboard',
@@ -203,7 +189,6 @@ var App = {
         'nav-history': 'history',
         'nav-admin': 'admin'
       };
-
       Object.keys(navMap).forEach(function (navId) {
         var el = document.getElementById(navId);
         if (el) {
@@ -211,6 +196,31 @@ var App = {
           el.addEventListener('click', function () { App.showPage(pageId); });
         }
       });
+
+      var moreBtn = document.getElementById('nav-more');
+      var moreDropdown = document.getElementById('more-dropdown');
+      if (moreBtn && moreDropdown) {
+        var itemsHtml = '';
+        document.querySelectorAll('[data-more="true"]').forEach(function (tab) {
+          itemsHtml += '<button class="more-item" data-page-id="' + tab.id + '">' + tab.textContent.trim() + '</button>';
+        });
+        moreDropdown.innerHTML = itemsHtml;
+        moreBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          moreDropdown.classList.toggle('hidden');
+        });
+        moreDropdown.addEventListener('click', function (e) {
+          var item = e.target.closest('.more-item');
+          if (!item) return;
+          App.showPage(item.getAttribute('data-page-id').replace('nav-', ''));
+          moreDropdown.classList.add('hidden');
+        });
+        document.addEventListener('click', function (e) {
+          if (!moreDropdown.classList.contains('hidden') && !moreDropdown.contains(e.target) && e.target !== moreBtn) {
+            moreDropdown.classList.add('hidden');
+          }
+        });
+      }
 
       var bind = function (name, module, method) {
         try {
@@ -220,7 +230,6 @@ var App = {
           console.warn('Failed to bind ' + name + ': ' + err.message);
         }
       };
-
       bind('Profile', typeof Profile !== 'undefined' ? Profile : null, 'bindUI');
       bind('MealLog', typeof MealLog !== 'undefined' ? MealLog : null, 'bindUI');
       bind('Vitals', typeof Vitals !== 'undefined' ? Vitals : null, 'bindForm');
@@ -245,7 +254,6 @@ var App = {
   showPage(page) {
     this.currentPage = page;
     try { localStorage.setItem('apex-current-page', page); } catch (e) {}
-
     var pages = ['dashboard', 'nutrition', 'watch', 'gym', 'history', 'admin'];
     pages.forEach(function (p) {
       var el = document.getElementById('page-' + p);
@@ -265,105 +273,81 @@ var App = {
     var token = ++this.loadToken;
     var sb = getSupabase();
     if (!sb) {
-      this.completeLoad();
+      AuraLoading.hide();
       return;
     }
 
-    var prof = null;
     try {
       var res = await sb.from('profiles').select('*').eq('user_id', this.userId).maybeSingle();
-      prof = res.data || null;
-    } catch (err) {
-      console.error('Profile fetch failed:', err.message);
-      this.completeLoad();
-      return;
-    }
+      var prof = res.data || null;
+      Dashboard.profile = prof;
 
-    Dashboard.profile = prof;
+      var isAdmin = !!(prof && prof.is_admin === true);
+      var adminNav = document.getElementById('nav-admin');
+      var normalNavs = ['nav-dashboard', 'nav-nutrition', 'nav-watch', 'nav-gym', 'nav-history'];
+      var profileBtn = document.getElementById('profile-btn');
 
-    var isAdmin = !!(prof && prof.is_admin === true);
-    var adminNav = document.getElementById('nav-admin');
-    var normalNavs = ['nav-dashboard', 'nav-nutrition', 'nav-watch', 'nav-gym', 'nav-history'];
-    var profileBtn = document.getElementById('profile-btn');
+      if (isAdmin) {
+        adminNav.classList.remove('hidden');
+        normalNavs.forEach(function (id) {
+          var el = document.getElementById(id);
+          if (el) el.classList.add('hidden');
+        });
+        if (profileBtn) profileBtn.classList.add('hidden');
+        this.showPage('admin');
+        if (typeof Admin !== 'undefined') await Admin.load(this.userId, token);
+        AuraLoading.hide(App.revealDashboard.bind(App));
+        return;
+      }
 
-    if (isAdmin) {
-      adminNav.classList.remove('hidden');
+      adminNav.classList.add('hidden');
       normalNavs.forEach(function (id) {
         var el = document.getElementById(id);
-        if (el) el.classList.add('hidden');
+        if (el) el.classList.remove('hidden');
       });
-      if (profileBtn) profileBtn.classList.add('hidden');
-      this.showPage('admin');
-      try {
-        if (typeof Admin !== 'undefined') await Admin.load(this.userId, token);
-      } catch (e) {
-        console.error('Admin load failed:', e.message);
+      if (profileBtn) profileBtn.classList.remove('hidden');
+
+      var p = prof || {};
+      function toggle(id, condition) {
+        var el = document.getElementById(id);
+        if (el) el.classList.toggle('hidden', condition);
       }
-      this.completeLoad();
-      return;
-    }
+      toggle('meal-card-section', p.meals_enabled === false);
+      toggle('huawei-tiles-section', p.huawei_enabled === false);
+      toggle('settings-card-section', p.huawei_enabled === false);
 
-    adminNav.classList.add('hidden');
-    normalNavs.forEach(function (id) {
-      var el = document.getElementById(id);
-      if (el) el.classList.remove('hidden');
-    });
-    if (profileBtn) profileBtn.classList.remove('hidden');
-
-    var p = prof || {};
-    function toggle(id, condition) {
-      var el = document.getElementById(id);
-      if (el) el.classList.toggle('hidden', condition);
-    }
-
-    toggle('meal-card-section', p.meals_enabled === false);
-    toggle('huawei-tiles-section', p.huawei_enabled === false);
-    toggle('settings-card-section', p.huawei_enabled === false);
-
-    try {
       if (typeof Huawei !== 'undefined') await Huawei.init(this.userId);
-    } catch (e) {
-      console.warn('Huawei init failed: ' + e.message);
+
+      await this.refreshModules(token);
+      if (typeof Dashboard.renderOverview === 'function') await Dashboard.renderOverview();
+
+      var lastPage = null;
+      try { lastPage = localStorage.getItem('apex-current-page'); } catch (e) {}
+      var allowedPages = ['dashboard', 'nutrition', 'watch', 'gym', 'history'];
+      if (lastPage && allowedPages.indexOf(lastPage) !== -1) this.showPage(lastPage);
+      else this.showPage('dashboard');
+
+      if (token === this.loadToken) this.refreshMacros();
+    } catch (err) {
+      console.error('Dashboard load error:', err);
+    } finally {
+      // Always hide loader with 2s buffer, then reveal dashboard
+      AuraLoading.hide(App.revealDashboard.bind(App));
     }
-
-    await this.refreshModules(token);
-
-    try {
-      await Dashboard.renderOverview();
-    } catch (e) {
-      console.warn('Overview failed: ' + e.message);
-    }
-
-    var lastPage = null;
-    try { lastPage = localStorage.getItem('apex-current-page'); } catch (e) {}
-    var allowedPages = ['dashboard', 'nutrition', 'watch', 'gym', 'history'];
-    if (lastPage && allowedPages.indexOf(lastPage) !== -1) this.showPage(lastPage);
-    else this.showPage('dashboard');
-
-    if (token === this.loadToken) this.refreshMacros();
-
-    this.completeLoad();
   },
 
   async refreshModules(token) {
     var tasks = [];
     function run(module, method) {
       try {
-        if (module && typeof module[method] === 'function') {
-          tasks.push(module[method](App.userId, token));
-        }
-      } catch (e) {
-        console.warn(e.message);
-      }
+        if (module && typeof module[method] === 'function') tasks.push(module[method](App.userId, token));
+      } catch (e) { console.warn(e.message); }
     }
-
     run(typeof MealLog !== 'undefined' ? MealLog : null, 'load');
     run(typeof Vitals !== 'undefined' ? Vitals : null, 'load');
     run(typeof Gym !== 'undefined' ? Gym : null, 'load');
     run(typeof History !== 'undefined' ? History : null, 'load');
-
     await Promise.allSettled(tasks);
-
     if (token === App.loadToken) App.refreshMacros();
   },
 
@@ -371,21 +355,15 @@ var App = {
     var token = ++this.loadToken;
     var sb = getSupabase();
     if (!sb || !this.userId) return;
-
     try {
       var res = await sb.from('profiles').select('*').eq('user_id', this.userId).maybeSingle();
-      Dashboard.profile = res.data || null;
+      Dashboard.profile = res.data || Dashboard.profile;
     } catch (e) {}
-
     await this.refreshModules(token);
-
-    try {
-      await Dashboard.renderOverview();
-    } catch (e) {}
+    try { if (typeof Dashboard.renderOverview === 'function') await Dashboard.renderOverview(); } catch (e) {}
   },
 
   setTotals(totals) { this.totals = totals; },
-
   refreshMacros() {
     try { Dashboard.renderMacroBars(MealLog.getTotals()); } catch (e) { console.warn(e.message); }
   }
