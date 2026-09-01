@@ -20,7 +20,7 @@ const Gym = {
     const timeInput = document.getElementById('new-workout-time');
 
     if (dateInput && !dateInput.value) {
-      dateInput.value = new Date().toISOString().slice(0, 10);
+      dateInput.value = localToday();
     }
 
     if (timeInput && !timeInput.value) {
@@ -85,7 +85,7 @@ const Gym = {
   async createWorkout() {
     const dateInput = document.getElementById('new-workout-date');
     const timeInput = document.getElementById('new-workout-time');
-    const date = dateInput.value || new Date().toISOString().slice(0, 10);
+    const date = dateInput.value || localToday();
     const startTime = timeInput.value || null;
 
     const sb = getSupabase();

@@ -25,7 +25,7 @@ const History = {
       .order('meal_date', { ascending: false });
 
     const uniqueDates = [...new Set((meals || []).map((m) => m.meal_date))].sort((a, b) => b.localeCompare(a));
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localToday();
     this.mealDates = uniqueDates.filter((d) => d !== today);
 
     if (token !== App.loadToken) return;

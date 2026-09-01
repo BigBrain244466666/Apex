@@ -69,7 +69,7 @@ const Dashboard = {
     await sb.from('profiles').insert(profileRow);
 
     if (!isAdminEmail) {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = localToday();
       const { data: meal } = await sb.from('meals').insert({
         user_id: userId,
         meal_type: 'breakfast',
@@ -137,7 +137,7 @@ const Dashboard = {
     if (!statsEl || !sb) return;
 
     // Collect recent vitals, meals, workouts for overview.
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localToday();
 
     const { data: vitals } = await sb.from('vitals')
       .select('*')
@@ -145,15 +145,17 @@ const Dashboard = {
       .order('log_date', { ascending: false })
       .limit(30);
 
+    const todayStr = localToday();
+
     const { data: meals } = await sb.from('meals')
       .select('id, meal_date')
       .eq('user_id', userId)
-      .gte('meal_date', today.slice(0, 8) + '00');
+      .gte('meal_date', todayStr);
 
     const { data: workouts } = await sb.from('workouts')
       .select('id, workout_date')
       .eq('user_id', userId)
-      .gte('workout_date', today.slice(0, 8) + '00');
+      .gte('workout_date', todayStr);
 
     const vitalsRows = (vitals || []).sort((a, b) => a.log_date.localeCompare(b.log_date));
     const todayVital = vitalsRows[vitalsRows.length - 1];

@@ -106,7 +106,7 @@ const MealLog = {
   async createMeal(mealType) {
     const sb = getSupabase();
     const userId = (await sb.auth.getUser()).data.user.id;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localToday();
 
     const { data, error } = await sb.from('meals').insert({
       user_id: userId,
@@ -249,7 +249,7 @@ const MealLog = {
 
   async load(userId, token) {
     const sb = getSupabase();
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localToday();
 
     const { data: meals, error } = await sb.from('meals')
       .select('id, meal_type')

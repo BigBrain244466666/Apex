@@ -8,7 +8,7 @@ const Vitals = {
 
     const form = document.getElementById('vitals-form');
     const dateInput = document.getElementById('vitals-date');
-    dateInput.value = new Date().toISOString().slice(0, 10);
+    dateInput.value = localToday();
 
     form.addEventListener('submit', async function (e) {
       e.preventDefault();
@@ -57,7 +57,7 @@ const Vitals = {
 
       Vitals.renderTable();
       form.reset();
-      dateInput.value = new Date().toISOString().slice(0, 10);
+      dateInput.value = localToday();
     });
   },
 
