@@ -160,7 +160,15 @@ var App = {
       submitBtn.disabled = true;
       try {
         if (mode === 'signup') {
-          await Auth.signUp(email, password);
+          const signupResult = await Auth.signUp(email, password);
+
+          // If email confirmation is OFF, Supabase returns a session immediately.
+          if (signupResult.data && signupResult.data.session) {
+            // Already signed in — the auth state change will route to dashboard.
+            return;
+          }
+
+          // Confirmation is still ON — tell the user to check email.
           errEl.textContent = 'Check your email to confirm your account, then sign in.';
           errEl.classList.remove('hidden');
         } else {
