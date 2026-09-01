@@ -1,35 +1,27 @@
+/* Profile editor — name, stats, goals, step goal, auto-calc */
+
 const Profile = {
   bound: false,
 
   bindUI() {
     if (this.bound) return;
     this.bound = true;
+    const self = this;
 
-    document.getElementById('profile-btn').addEventListener('click', function () {
-      Profile.open();
-    });
-
-    document.getElementById('profile-form').addEventListener('submit', async function (e) {
+    document.getElementById('profile-btn')?.addEventListener('click', () => this.open());
+    document.getElementById('profile-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
-      await Profile.save();
+      await this.save();
     });
-
-    document.getElementById('auto-calc-btn').addEventListener('click', async function () {
-      await Profile.autoCalculate();
-    });
-
-    document.querySelectorAll('[data-close-modal="profile-modal"]').forEach(function (el) {
-      el.addEventListener('click', function () {
-        Profile.close();
-      });
-    });
+    document.getElementById('auto-calc-btn')?.addEventListener('click', () => this.autoCalculate());
+    document.querySelectorAll('[data-close-modal="profile-modal"]').forEach(el =>
+      el.addEventListener('click', () => this.close())
+    );
   },
 
   open() {
     const p = Dashboard.profile || {};
-    const set = function (id, val) {
-      document.getElementById(id).value = val || '';
-    };
+    function set(id, val) { const el = document.getElementById(id); if (el) el.value = val || ''; }
 
     set('profile-name', p.display_name || '');
     set('profile-weight', p.weight_lbs);
@@ -38,52 +30,37 @@ const Profile = {
     set('profile-goal', p.body_fat_goal);
     set('profile-gym', p.gym_frequency);
     set('profile-activity', p.activity_level || 'moderate');
+    set('profile-step-goal', p.step_goal || 10000);
     set('profile-cal', p.calorie_target);
     set('profile-protein', p.protein_target);
     set('profile-fat', p.fat_target);
     set('profile-carbs', p.carb_target);
 
-    document.getElementById('profile-modal').classList.remove('hidden');
+    document.getElementById('profile-modal')?.classList.remove('hidden');
   },
 
   close() {
-    document.getElementById('profile-modal').classList.add('hidden');
+    document.getElementById('profile-modal')?.classList.add('hidden');
   },
 
-  async autoCalculate() {
+  autoCalculate() {
     const weightLbs = Number(document.getElementById('profile-weight').value);
     const heightCm = Number(document.getElementById('profile-height').value);
     const activity = document.getElementById('profile-activity').value;
+    if (!weightLbs || !heightCm) return alert('Please enter weight and height first.');
 
-    if (!weightLbs || !heightCm) {
-      alert('Please enter weight and height first.');
-      return;
-    }
-
-    // Prefer the latest measured body fat from vitals.
     let bodyFat = Number(document.getElementById('profile-bodyfat').value);
-    if (!bodyFat && typeof Vitals !== 'undefined' && Vitals.latestBodyFat) {
-      const measured = Vitals.latestBodyFat();
-      if (measured) bodyFat = measured;
+    if (!bodyFat && typeof Vitals !== 'undefined') {
+      const latest = Vitals.rows.filter(r => r.estimated_body_fat != null);
+      if (latest.length) bodyFat = Number(latest[latest.length - 1].estimated_body_fat);
     }
-
-    if (!bodyFat) {
-      alert('Please enter body fat %, or log waist + neck in Body Metrics first.');
-      return;
-    }
+    if (!bodyFat) return alert('Enter body fat % or log waist + neck in Body Metrics first.');
 
     const weightKg = weightLbs / 2.20462;
     const leanMassKg = weightKg * (1 - bodyFat / 100);
     const bmr = 370 + 21.6 * leanMassKg;
-
-    const activityFactors = {
-      sedentary: 1.2,
-      light: 1.375,
-      moderate: 1.55,
-      active: 1.725,
-      very_active: 1.9
-    };
-    const factor = activityFactors[activity] || 1.55;
+    const factors = { sedentary: 1.2, light: 1.375, moderate: 1.55, active: 1.725, very_active: 1.9 };
+    const factor = factors[activity] || 1.55;
 
     const calories = Math.round(bmr * factor - 500);
     const protein = Math.round(weightLbs * 1.0);
@@ -99,8 +76,7 @@ const Profile = {
   async save() {
     const sb = getSupabase();
     const userId = (await sb.auth.getUser()).data.user.id;
-
-    const get = function (id) { return document.getElementById(id).value; };
+    function get(id) { return document.getElementById(id).value; }
 
     const updates = {
       display_name: get('profile-name') || null,
@@ -110,23 +86,17 @@ const Profile = {
       body_fat_goal: get('profile-goal') || null,
       gym_frequency: get('profile-gym') || null,
       activity_level: get('profile-activity') || 'moderate',
+      step_goal: Number(get('profile-step-goal')) || 10000,
       calorie_target: Number(get('profile-cal')) || null,
       protein_target: Number(get('profile-protein')) || null,
       fat_target: Number(get('profile-fat')) || null,
       carb_target: Number(get('profile-carbs')) || null
     };
 
-    const { error } = await sb.from('profiles')
-      .update(updates)
-      .eq('user_id', userId);
-
-    if (error) return alert('Save failed: ' + error.message);
-
-    if (Dashboard.profile) {
-      Object.assign(Dashboard.profile, updates);
-    }
-
-    Profile.close();
+    const res = await sb.from('profiles').update(updates).eq('user_id', userId);
+    if (res.error) return alert(res.error.message);
+    if (Dashboard.profile) Object.assign(Dashboard.profile, updates);
+    this.close();
     App.refreshMacros();
   }
 };

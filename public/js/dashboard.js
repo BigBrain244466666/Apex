@@ -1,45 +1,14 @@
-/* ============ Dashboard module — complete ============ */
+/* Dashboard — macros, overview stats, 6-axis radar (no sleep/workout), charts */
 
-function localTodayString() {
-  var d = new Date();
-  var y = d.getFullYear();
-  var m = String(d.getMonth() + 1).padStart(2, '0');
-  var day = String(d.getDate()).padStart(2, '0');
-  return y + '-' + m + '-' + day;
-}
-
-function dashEscape(str) {
-  return String(str).replace(/[&<>"']/g, function (c) {
-    var map = {
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#39;'
-    };
-    return map[c];
-  });
-}
-
-var DEFAULT_PROFILE = {
-  weight_lbs: null,
-  height_cm: 179,
-  body_fat_current: null,
-  body_fat_goal: null,
-  gym_frequency: '5 days/week',
-  calorie_target: 2100,
-  protein_target: 170,
-  fat_target: 60,
-  carb_target: 220,
-  is_admin: false,
-  meals_enabled: true,
-  gym_enabled: true,
-  history_enabled: true,
-  vitals_enabled: true,
-  huawei_enabled: true
+const DEFAULT_PROFILE = {
+  weight_lbs: null, height_cm: 179, body_fat_current: null, body_fat_goal: null,
+  gym_frequency: '5 days/week', calorie_target: 2100, protein_target: 170,
+  fat_target: 60, carb_target: 220, step_goal: 10000, is_admin: false,
+  meals_enabled: true, gym_enabled: true, history_enabled: true,
+  vitals_enabled: true, huawei_enabled: true
 };
 
-var SEED_BREAKFAST_ITEMS = [
+const SEED_BREAKFAST_ITEMS = [
   { food_name: '5 large eggs', calories: 360, protein: 31, fat: 25, carbs: 1 },
   { food_name: '88g pork sausage', calories: 310, protein: 15, fat: 27, carbs: 1 },
   { food_name: '78g Swiss cheese', calories: 280, protein: 20, fat: 21, carbs: 1 },
@@ -47,326 +16,278 @@ var SEED_BREAKFAST_ITEMS = [
   { food_name: 'Soy sauce', calories: 15, protein: 1, fat: 0, carbs: 3 }
 ];
 
-var MACRO_STYLES = [
+const MACRO_STYLES = [
   { key: 'calories', label: 'Calories', color: '#4d6bfe' },
   { key: 'protein', label: 'Protein', color: '#2ea043' },
   { key: 'fat', label: 'Fat', color: '#d29922' },
   { key: 'carbs', label: 'Carbs', color: '#a371f7' }
 ];
 
-var Dashboard = {
+const Dashboard = {
   profile: null,
-  profilePromise: null,
 
-  ensureProfile: function (userId) {
-    if (this.profile) return Promise.resolve(this.profile);
-    if (this.profilePromise) return this.profilePromise;
-
-    this.profilePromise = this._doEnsureProfile(userId);
-    return this.profilePromise;
-  },
-
-  _doEnsureProfile: async function (userId) {
-    var sb = getSupabase();
-    if (!sb) return null;
-
-    var existingRes = await sb.from('profiles')
-      .select('*')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (existingRes.data) {
-      this.profile = existingRes.data;
-      return existingRes.data;
-    }
-
-    var userRes = await sb.auth.getUser();
-    var user = userRes.data ? userRes.data.user : null;
-    var isAdminEmail = user && user.email === 'admin@apex.local';
-
-    var profileRow = {
-      user_id: userId,
-      email: user ? user.email : null,
-      is_admin: isAdminEmail,
-      meals_enabled: true,
-      gym_enabled: true,
-      history_enabled: true,
-      vitals_enabled: true,
-      huawei_enabled: true
+  async ensureProfile(userId) {
+    const sb = getSupabase();
+    const res = await sb.from('profiles').select('*').eq('user_id', userId).maybeSingle();
+    if (res.data) { this.profile = res.data; return res.data; }
+    const userRes = await sb.auth.getUser();
+    const email = userRes.data && userRes.data.user ? userRes.data.user.email : null;
+    const isAdminEmail = email === 'admin@apex.local';
+    const row = {
+      user_id: userId, email: email, is_admin: isAdminEmail,
+      meals_enabled: true, gym_enabled: true, history_enabled: true,
+      vitals_enabled: true, huawei_enabled: true, step_goal: 10000
     };
-
-    await sb.from('profiles').insert(profileRow);
-
+    await sb.from('profiles').insert(row);
     if (!isAdminEmail) {
-      var today = localTodayString();
-      var mealRes = await sb.from('meals').insert({
-        user_id: userId,
-        meal_type: 'breakfast',
-        meal_date: today
-      }).select().single();
-
+      const now = new Date();
+      const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+      const mealRes = await sb.from('meals').insert({ user_id: userId, meal_type: 'breakfast', meal_date: today }).select().single();
       if (mealRes.data) {
-        var items = SEED_BREAKFAST_ITEMS.map(function (it) {
-          return {
-            meal_id: mealRes.data.id,
-            user_id: userId,
-            food_name: it.food_name,
-            calories: it.calories,
-            protein: it.protein,
-            fat: it.fat,
-            carbs: it.carbs
-          };
+        const items = SEED_BREAKFAST_ITEMS.map(function (it) {
+          return { meal_id: mealRes.data.id, user_id: userId, food_name: it.food_name, calories: it.calories, protein: it.protein, fat: it.fat, carbs: it.carbs };
         });
         await sb.from('meal_items').insert(items);
       }
     }
-
-    this.profile = profileRow;
-    return profileRow;
+    this.profile = row;
+    return row;
   },
 
-  renderMacroBars: function (totals) {
-    var el = document.getElementById('macro-bars');
+  renderMacroBars(totals) {
+    const el = document.getElementById('macro-bars');
     if (!el) return;
-
-    var today = new Date().toLocaleDateString(undefined, {
-      weekday: 'long',
-      month: 'long',
-      day: 'numeric'
-    });
-
-    var dateEl = document.getElementById('macro-date');
-    if (dateEl) dateEl.textContent = today;
-
-    var targets = {
+    document.getElementById('macro-date').textContent = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+    const targets = {
       calories: this.profile && this.profile.calorie_target ? this.profile.calorie_target : DEFAULT_PROFILE.calorie_target,
       protein: this.profile && this.profile.protein_target ? this.profile.protein_target : DEFAULT_PROFILE.protein_target,
       fat: this.profile && this.profile.fat_target ? this.profile.fat_target : DEFAULT_PROFILE.fat_target,
       carbs: this.profile && this.profile.carb_target ? this.profile.carb_target : DEFAULT_PROFILE.carb_target
     };
-
     el.innerHTML = '';
-
-    for (var i = 0; i < MACRO_STYLES.length; i++) {
-      var m = MACRO_STYLES[i];
-      var target = targets[m.key];
-      var consumed = totals && totals[m.key] ? totals[m.key] : 0;
-      var remaining = Math.max(0, target - consumed);
-      var pct = target > 0 ? Math.min(100, (consumed / target) * 100) : 0;
-      var unit = m.key === 'calories' ? ' kcal' : 'g';
-
-      var bar = document.createElement('div');
+    MACRO_STYLES.forEach(function (m) {
+      const target = targets[m.key];
+      const consumed = totals && totals[m.key] ? totals[m.key] : 0;
+      const remaining = Math.max(0, target - consumed);
+      const pct = target > 0 ? Math.min(100, (consumed / target) * 100) : 0;
+      const unit = m.key === 'calories' ? ' kcal' : 'g';
+      const bar = document.createElement('div');
       bar.className = 'macro-item';
-      bar.innerHTML =
-        '<div class="macro-head">' +
-        '<span class="macro-label">' + m.label + '</span>' +
-        '<span class="macro-nums"><b>' + Math.round(consumed) + '</b> / ' + target + unit + '</span>' +
-        '</div>' +
-        '<div class="progress-track"><div class="progress-fill" style="width:' + pct + '%;background:' + m.color + '"></div></div>' +
-        '<div class="macro-remaining">' + Math.round(remaining) + unit + ' left</div>';
+      bar.innerHTML = '<div class="macro-head"><span class="macro-label">' + m.label + '</span><span class="macro-nums"><b>' + Math.round(consumed) + '</b> / ' + target + unit + '</span></div><div class="progress-track"><div class="progress-fill" style="width:' + pct + '%;background:' + m.color + '"></div></div><div class="macro-remaining">' + Math.round(remaining) + unit + ' left</div>';
       el.appendChild(bar);
-    }
+    });
   },
 
-  renderOverview: async function () {
-    var sb = getSupabase();
-    var userId = App.userId;
-    var statsEl = document.getElementById('overview-stats');
-
+  async renderOverview() {
+    const sb = getSupabase();
+    const userId = App.userId;
+    const statsEl = document.getElementById('overview-stats');
     if (!statsEl || !sb || !userId) return;
 
-    var now = new Date();
-    var day = now.getDay();
-    var diff = now.getDate() - day + (day === 0 ? -6 : 1);
-    var monday = new Date(now);
-    monday.setDate(diff);
+    const vitals = await sb.from('vitals').select('*').eq('user_id', userId).order('log_date', { ascending: false }).limit(30);
+    const meals = await sb.from('meals').select('id, meal_date').eq('user_id', userId);
+    const workouts = await sb.from('workouts').select('id, workout_date').eq('user_id', userId);
 
-    var startStr =
-      monday.getFullYear() + '-' +
-      String(monday.getMonth() + 1).padStart(2, '0') + '-' +
-      String(monday.getDate()).padStart(2, '0');
+    const v = vitals.data || [];
+    const currentWeight = v.length && v[0].morning_weight ? v[0].morning_weight : (this.profile && this.profile.weight_lbs ? this.profile.weight_lbs : '—');
+    const avgWeight = this.avgOfRecent(v, 7, 'morning_weight');
+    const workoutsThisWeek = workouts.data ? workouts.data.length : 0;
+    const mealsThisWeek = meals.data ? meals.data.length : 0;
+    const streak = await this.computeStreak();
 
-    var todayStr = localTodayString();
+    const cards = [
+      { label: 'Weight', value: currentWeight + ' lbs', icon: '⚖️' },
+      { label: '7d Avg', value: avgWeight ? avgWeight.toFixed(1) + ' lbs' : 'N/A', icon: '📊' },
+      { label: 'Workouts', value: workoutsThisWeek, icon: '🏋️' },
+      { label: 'Meals', value: mealsThisWeek, icon: '🍽️' },
+      { label: 'Streak', value: streak + ' days', icon: '🔥' },
+      { label: 'Body Fat', value: this.profile && this.profile.body_fat_current ? this.profile.body_fat_current + '%' : 'N/A', icon: '📐' }
+    ];
+    statsEl.innerHTML = cards.map(function (c) {
+      return '<div class="overview-stat fade-in"><span class="overview-stat-icon">' + c.icon + '</span><span class="overview-stat-value">' + c.value + '</span><span class="overview-stat-label">' + c.label + '</span></div>';
+    }).join('');
 
-    var vitalsRes = await sb.from('vitals')
-      .select('*')
-      .eq('user_id', userId)
-      .order('log_date', { ascending: false })
-      .limit(30);
+    await this.renderPRs();
+    await this.renderCharts(v);
+  },
 
-    var mealsRes = await sb.from('meals')
-      .select('id, meal_date')
-      .eq('user_id', userId)
-      .gte('meal_date', startStr)
-      .lte('meal_date', todayStr);
+  async renderPRs() {
+    const sb = getSupabase();
+    const userId = App.userId;
+    if (!sb || !userId) return;
+    const prsRes = await sb.from('personal_records').select('*').eq('user_id', userId).order('weight', { ascending: false });
+    let el = document.getElementById('pr-dashboard-card');
+    if (!el) {
+      const dashboard = document.getElementById('page-dashboard');
+      if (!dashboard) return;
+      el = document.createElement('section');
+      el.className = 'card pr-card';
+      el.id = 'pr-dashboard-card';
+      el.innerHTML = '<h2 class="card-title">🏆 Personal Records</h2><div class="pr-list"></div>';
+      dashboard.appendChild(el);
+    }
+    const listEl = el.querySelector('.pr-list');
+    if (!listEl) return;
+    const prs = prsRes.data || [];
+    if (!prs.length) {
+      listEl.innerHTML = '<p class="muted">No PRs yet. Enter them in the Gym tab.</p>';
+      return;
+    }
+    listEl.innerHTML = prs.map(function (p) {
+      return '<div class="pr-row"><span class="pr-exercise">' + escapeHtml(p.exercise_name) + '</span><span class="pr-value">' + p.weight + ' lb × 1</span><span class="pr-date muted">' + p.achieved_at + '</span></div>';
+    }).join('');
+  },
 
-    var workoutsRes = await sb.from('workouts')
-      .select('id, workout_date')
-      .eq('user_id', userId)
-      .gte('workout_date', startStr)
-      .lte('workout_date', todayStr);
+  avgOfRecent(rows, days, field) {
+    const vals = rows.slice(-days).filter(function (r) { return r[field] != null; }).map(function (r) { return Number(r[field]); });
+    return vals.length ? vals.reduce(function (a, b) { return a + b; }, 0) / vals.length : null;
+  },
 
-    var vitalsRows = (vitalsRes.data || []).sort(function (a, b) {
-      return a.log_date.localeCompare(b.log_date);
+  async computeStreak() {
+    const sb = getSupabase();
+    const userId = App.userId;
+    const vitalsRes = await sb.from('vitals').select('log_date').eq('user_id', userId);
+    const dates = new Set((vitalsRes.data || []).map(function (r) { return r.log_date; }));
+    let streak = 0;
+    const today = new Date();
+    for (let i = 0; i < 365; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      if (dates.has(key)) streak++;
+      else if (i > 0) break;
+    }
+    return streak;
+  },
+
+  async renderCharts(vitals) {
+    if (typeof ChartManager === 'undefined') return;
+    const sb = getSupabase();
+    const userId = App.userId;
+
+    const weightRows = vitals.filter(function (r) { return r.morning_weight != null; }).map(function (r) {
+      return { date: r.log_date, weight: Number(r.morning_weight) };
     });
+    weightRows.sort(function (a, b) { return a.date.localeCompare(b.date); });
 
-    var todayVital = vitalsRows.length ? vitalsRows[vitalsRows.length - 1] : null;
+    if (weightRows.length >= 2) {
+      const rawLabels = weightRows.map(function (r) { return r.date; });
+      const rawData = weightRows.map(function (r) { return r.weight; });
+      const rolling = [];
+      for (let i = 0; i < weightRows.length; i++) {
+        const start = Math.max(0, i - 6);
+        const slice = weightRows.slice(start, i + 1);
+        rolling.push(Math.round((slice.reduce(function (a, r) { return a + r.weight; }, 0) / slice.length) * 10) / 10);
+      }
+      ChartManager.line('weight-chart', rawLabels, [
+        { label: 'Daily Weight', data: rawData, borderColor: 'rgba(139,148,158,0.5)', backgroundColor: 'transparent', tension: 0.35, pointRadius: 2.5, fill: false },
+        { label: '7-Day Average', data: rolling, borderColor: '#4d6bfe', backgroundColor: 'rgba(77,107,254,0.15)', tension: 0.4, pointRadius: 0, borderWidth: 3, fill: true }
+      ]);
+    }
 
-    var currentWeight = todayVital && todayVital.morning_weight
-      ? todayVital.morning_weight
-      : (this.profile && this.profile.weight_lbs ? this.profile.weight_lbs : '—');
+    const totals = MealLog.getTotals();
+    const targets = {
+      Calories: this.profile && this.profile.calorie_target ? this.profile.calorie_target : DEFAULT_PROFILE.calorie_target,
+      Protein: this.profile && this.profile.protein_target ? this.profile.protein_target : DEFAULT_PROFILE.protein_target,
+      Fat: this.profile && this.profile.fat_target ? this.profile.fat_target : DEFAULT_PROFILE.fat_target,
+      Carbs: this.profile && this.profile.carb_target ? this.profile.carb_target : DEFAULT_PROFILE.carb_target
+    };
+    const consumed = { Calories: totals.calories, Protein: totals.protein, Fat: totals.fat, Carbs: totals.carbs };
+    const nowDate = new Date();
+    const todayStr = nowDate.getFullYear() + '-' + String(nowDate.getMonth() + 1).padStart(2, '0') + '-' + String(nowDate.getDate()).padStart(2, '0');
 
-    var avgWeight = this.avgOfRecent(vitalsRows, 7, 'morning_weight');
-    var waist = todayVital && todayVital.waist_circumference
-      ? todayVital.waist_circumference
-      : '—';
+    const waterRes = await sb.from('water_logs').select('amount_ml').eq('user_id', userId).eq('log_date', todayStr);
+    const waterTotal = (waterRes.data || []).reduce(function (a, r) { return a + Number(r.amount_ml); }, 0);
 
-    var workoutsThisWeek = workoutsRes.data ? workoutsRes.data.length : 0;
-    var mealsThisWeek = mealsRes.data ? mealsRes.data.length : 0;
+    const stepRes = await sb.from('manual_watch_logs').select('steps').eq('user_id', userId).eq('log_date', todayStr).maybeSingle();
+    const todaySteps = (stepRes.data && stepRes.data.steps) ? stepRes.data.steps : 0;
+    const stepGoal = this.profile && this.profile.step_goal ? this.profile.step_goal : 10000;
 
-    var statCards = [
-      { label: 'Current Weight', value: currentWeight + ' lbs' },
-      { label: '7-Day Avg Weight', value: avgWeight ? avgWeight.toFixed(1) + ' lbs' : 'N/A' },
-      { label: 'Waist', value: waist + ' cm' },
-      { label: 'Workouts This Week', value: workoutsThisWeek },
-      { label: 'Meals This Week', value: mealsThisWeek },
-      { label: 'Body Fat Goal', value: this.profile && this.profile.body_fat_goal ? this.profile.body_fat_goal : 'N/A' }
+    // 6 metrics — no Sleep, no Workouts
+    const radarLabels = ['Calories', 'Protein', 'Fat', 'Carbs', 'Water', 'Steps'];
+    const radarData = [
+      Math.min(100, Math.max(0, Math.round(consumed.Calories / targets.Calories * 100))),
+      Math.min(100, Math.max(0, Math.round(consumed.Protein / targets.Protein * 100))),
+      Math.min(100, Math.max(0, Math.round(consumed.Fat / targets.Fat * 100))),
+      Math.min(100, Math.max(0, Math.round(consumed.Carbs / targets.Carbs * 100))),
+      Math.min(100, Math.round(waterTotal / 3000 * 100)),
+      Math.min(100, Math.round(todaySteps / stepGoal * 100))
     ];
 
-    var html = '';
-    for (var i = 0; i < statCards.length; i++) {
-      var c = statCards[i];
-      html +=
-        '<div class="overview-stat">' +
-        '<span class="overview-stat-value">' + c.value + '</span>' +
-        '<span class="overview-stat-label">' + c.label + '</span>' +
-        '</div>';
-    }
+    ChartManager.radar('macro-radar', radarLabels, [{
+      label: 'Target Adherence',
+      data: radarData,
+      borderColor: '#4d6bfe',
+      backgroundColor: 'rgba(77,107,254,0.15)',
+      fill: true
+    }]);
 
-    statsEl.innerHTML = html;
-
-    this.renderWeightChart(vitalsRows);
-    await this.renderCalorieChart();
-  },
-
-  avgOfRecent: function (rows, days, field) {
-    var values = rows.slice(-days).filter(function (r) {
-      return r[field] != null;
-    }).map(function (r) {
-      return Number(r[field]);
-    });
-
-    if (!values.length) return null;
-
-    var sum = values.reduce(function (a, b) { return a + b; }, 0);
-    return sum / values.length;
-  },
-
-  renderWeightChart: function (rows) {
-    var el = document.getElementById('overview-weight-chart');
-    if (!el) return;
-
-    var points = rows
-      .filter(function (r) { return r.morning_weight != null; })
-      .map(function (r) {
-        return { label: r.log_date, value: Number(r.morning_weight) };
-      });
-
-    if (points.length < 2) {
-      el.innerHTML = '<p class="muted small">Log more weigh-ins to see a weight trend.</p>';
-      return;
-    }
-
-    el.innerHTML = this.buildChartSVG(points);
-  },
-
-  renderCalorieChart: async function () {
-    var el = document.getElementById('overview-calorie-chart');
-    if (!el) return;
-
-    var sb = getSupabase();
-    var userId = App.userId;
-    if (!sb || !userId) return;
-
-    var start = new Date();
-    start.setDate(start.getDate() - 13);
-    var startStr =
-      start.getFullYear() + '-' +
-      String(start.getMonth() + 1).padStart(2, '0') + '-' +
-      String(start.getDate()).padStart(2, '0');
-
-    var mealsRes = await sb.from('meals')
-      .select('id, meal_date')
-      .eq('user_id', userId)
-      .gte('meal_date', startStr);
-
-    var itemsRes = await sb.from('meal_items')
-      .select('meal_id, calories')
-      .eq('user_id', userId);
-
-    var calByMeal = {};
-    var items = itemsRes.data || [];
-    for (var i = 0; i < items.length; i++) {
-      var it = items[i];
-      calByMeal[it.meal_id] = (calByMeal[it.meal_id] || 0) + (Number(it.calories) || 0);
-    }
-
-    var byDate = {};
-    var meals = mealsRes.data || [];
-    for (var j = 0; j < meals.length; j++) {
-      var m = meals[j];
-      byDate[m.meal_date] = (byDate[m.meal_date] || 0) + (calByMeal[m.id] || 0);
-    }
-
-    var dates = Object.keys(byDate).sort();
-    var points = dates.map(function (d) {
-      return { label: d, value: Math.round(byDate[d]) };
-    });
-
-    if (points.length < 2) {
-      el.innerHTML = '<p class="muted small">Log a few days to see a calorie trend.</p>';
-      return;
-    }
-
-    el.innerHTML = this.buildChartSVG(points);
-  },
-
-  buildChartSVG: function (dataPoints) {
-    var w = 600;
-    var h = 160;
-    var pad = 30;
-
-    var vals = dataPoints.map(function (d) { return d.value; });
-    var min = Math.min.apply(null, vals);
-    var max = Math.max.apply(null, vals);
-    var range = (max - min) || 1;
-
-    function xFor(i) {
-      return pad + (i / (dataPoints.length - 1)) * (w - pad * 2);
-    }
-
-    function yFor(v) {
-      return h - pad - ((v - min) / range) * (h - pad * 2);
-    }
-
-    var line = '';
-    var dots = '';
-    for (var i = 0; i < dataPoints.length; i++) {
-      var x = xFor(i);
-      var y = yFor(dataPoints[i].value);
-      line += (i === 0 ? '' : ' ') + x + ',' + y;
-      dots += '<circle cx="' + x + '" cy="' + y + '" r="3.5" fill="#4d6bfe" />';
-    }
-
-    return (
-      '<svg viewBox="0 0 ' + w + ' ' + h + '" class="trend-chart" preserveAspectRatio="none">' +
-      '<polyline points="' + line + '" fill="none" stroke="#4d6bfe" stroke-width="2" vector-effect="non-scaling-stroke" />' +
-      dots +
-      '</svg>' +
-      '<div class="trend-chart-labels">' +
-      '<span>' + dashEscape(dataPoints[0].label) + '</span>' +
-      '<span>' + dashEscape(dataPoints[dataPoints.length - 1].label) + '</span>' +
-      '</div>'
+    const currentWeight = weightRows.length ? weightRows[weightRows.length - 1].weight : (this.profile && this.profile.weight_lbs ? this.profile.weight_lbs : 173);
+    const bfRows = vitals.filter(function (r) { return r.estimated_body_fat != null; });
+    const bodyFatPct = bfRows.length ? Number(bfRows[bfRows.length - 1].estimated_body_fat) : (this.profile && this.profile.body_fat_current ? this.profile.body_fat_current : 23);
+    const fatMass = Math.round((currentWeight * bodyFatPct / 100) * 10) / 10;
+    const leanMass = currentWeight - fatMass;
+    const boneMass = Math.round(leanMass * 0.15 * 10) / 10;
+    const muscleMass = Math.round((leanMass - boneMass) * 10) / 10;
+    ChartManager.doughnut('macro-donut',
+      ['Muscle (' + muscleMass + ' lbs)', 'Bone (' + boneMass + ' lbs)', 'Fat (' + fatMass + ' lbs)'],
+      [muscleMass, boneMass, fatMass]
     );
+
+    const workoutsRes = await sb.from('workouts').select('id, workout_date').eq('user_id', userId);
+    const exercisesRes = await sb.from('workout_exercises').select('id, workout_id').eq('user_id', userId);
+    const setsRes = await sb.from('exercise_sets').select('exercise_id, weight, reps').eq('user_id', userId);
+
+    const workoutDateById = {};
+    (workoutsRes.data || []).forEach(function (w) { workoutDateById[w.id] = w.workout_date; });
+    const exerciseWorkoutDate = {};
+    (exercisesRes.data || []).forEach(function (ex) { exerciseWorkoutDate[ex.id] = workoutDateById[ex.workout_id] || null; });
+
+    const volumeByDate = {};
+    (setsRes.data || []).forEach(function (s) {
+      const date = exerciseWorkoutDate[s.exercise_id];
+      if (!date) return;
+      const vol = (Number(s.weight) || 0) * (Number(s.reps) || 0);
+      volumeByDate[date] = (volumeByDate[date] || 0) + vol;
+    });
+
+    const now = new Date();
+    const weekLabels = [];
+    const weekVolumes = [];
+    for (let i = 7; i >= 0; i--) {
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - i * 7);
+      let vol = 0;
+      Object.entries(volumeByDate).forEach(function (entry) {
+        const date = entry[0];
+        const v = entry[1];
+        const d = new Date(date);
+        if (d >= weekStart && d < new Date(weekStart.getTime() + 7 * 86400000)) vol += v;
+      });
+      weekLabels.push(weekStart.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
+      weekVolumes.push(vol);
+    }
+
+    ChartManager.bar('calorie-chart', weekLabels, [{
+      label: 'Weekly Volume (lb)',
+      data: weekVolumes,
+      backgroundColor: '#2ea043',
+      borderRadius: 6
+    }]);
   }
 };
+
+function startOfWeekStr() {
+  const now = new Date();
+  const day = now.getDay();
+  const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(now);
+  monday.setDate(diff);
+  return monday.getFullYear() + '-' + String(monday.getMonth() + 1).padStart(2, '0') + '-' + String(monday.getDate()).padStart(2, '0');
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}

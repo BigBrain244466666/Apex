@@ -2,374 +2,338 @@ const MealLog = {
   meals: [],
   bound: false,
   currentMealId: null,
-  selectedFood: null,
+  selectedFood: null, // stores the per100g data of the last selected food
   debounceTimer: null,
-  MEAL_TYPES: ['breakfast', 'lunch', 'dinner', 'snack'],
-  TYPE_ORDER: { breakfast: 0, lunch: 1, dinner: 2, snack: 3 },
 
   bindUI() {
     if (this.bound) return;
     this.bound = true;
+    const self = this;
 
-    document.getElementById('add-meal-btn').addEventListener('click', () => {
-      this.openModal('meal-type-modal');
-    });
-
-    document.querySelectorAll('.meal-type-btn').forEach((btn) => {
-      btn.addEventListener('click', () => this.createMeal(btn.dataset.type));
-    });
-
-    document.querySelectorAll('[data-close-modal]').forEach((el) => {
-      el.addEventListener('click', () => this.closeModal(el.dataset.closeModal));
-    });
+    document.getElementById('add-meal-btn')?.addEventListener('click', () => this.openModal('meal-type-modal'));
+    document.querySelectorAll('.meal-type-btn').forEach(btn => btn.addEventListener('click', () => this.createMeal(btn.dataset.type)));
+    document.querySelectorAll('[data-close-modal]').forEach(el => el.addEventListener('click', () => this.closeModal(el.dataset.closeModal)));
 
     const searchInput = document.getElementById('food-search');
     const resultsEl = document.getElementById('food-results');
-    const servingInput = document.getElementById('food-serving');
-
-    searchInput.addEventListener('input', () => {
+    searchInput?.addEventListener('input', () => {
       clearTimeout(this.debounceTimer);
       const q = searchInput.value.trim();
-      if (q.length < 2) {
-        this.hideResults(resultsEl);
-        return;
-      }
+      if (q.length < 2) return this.hideResults(resultsEl);
       this.debounceTimer = setTimeout(async () => {
-        try {
-          const hits = await searchNutrition(q);
-          this.renderFoodResults(hits, resultsEl);
-        } catch (err) {
-          console.error(err);
-        }
+        try { this.renderFoodResults(await searchNutrition(q), resultsEl); } catch (e) { console.error(e); }
       }, 350);
     });
 
-    servingInput.addEventListener('input', () => {
-      const grams = Number(servingInput.value);
-      if (grams > 0) this.applyServing(grams);
-    });
-
-    searchInput.addEventListener('change', () => {
-      if (this.selectedFood && searchInput.value !== this.selectedFood.name) {
-        this.selectedFood = null;
-        document.getElementById('serving-row').classList.add('hidden');
-        this.clearServingNote();
-      }
-    });
-
-    document.getElementById('food-form').addEventListener('submit', async (e) => {
+    document.getElementById('food-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const food_name = searchInput.value.trim();
-      const calories = Number(document.getElementById('food-cal').value);
-      const protein = Number(document.getElementById('food-protein').value);
-      const fat = Number(document.getElementById('food-fat').value);
-      const carbs = Number(document.getElementById('food-carbs').value);
-
-      if (!food_name) return alert('Food name is required.');
-      if (!calories && !protein && !fat && !carbs) return alert('Add at least one macro value.');
-      if (!this.currentMealId) return alert('No meal selected.');
-
-      const sb = getSupabase();
-      const userId = (await sb.auth.getUser()).data.user.id;
-
-      const { data, error } = await sb.from('meal_items').insert({
-        meal_id: this.currentMealId,
-        user_id: userId,
-        food_name,
-        calories,
-        protein,
-        fat,
-        carbs
-      }).select().single();
-
-      if (error) return alert(error.message);
-
-      const meal = this.meals.find((m) => m.id === this.currentMealId);
-      if (meal) meal.items.push(data);
-
-      this.closeModal('food-modal');
-      this.resetFoodModal();
-      this.renderMeals();
-      this.updateTotals();
-      App.refreshMacros();
+      await this.saveFoodFromForm();
     });
+
+    document.getElementById('copy-meals-btn')?.addEventListener('click', () => this.copyYesterday());
+    this.loadFavorites();
+
+    // ---- Add grams input if missing ----
+    this.ensureGramsInput();
+
+    // ---- Live scaling when grams changes ----
+    const gramsInput = document.getElementById('food-grams');
+    if (gramsInput) {
+      gramsInput.addEventListener('input', () => this.scaleFromGrams());
+    }
   },
 
-  openModal(id) {
-    document.getElementById(id).classList.remove('hidden');
+  ensureGramsInput() {
+    const form = document.getElementById('food-form');
+    if (!form) return;
+    let gramsInput = document.getElementById('food-grams');
+    if (!gramsInput) {
+      // Insert a grams field before the macro grid
+      const macroGrid = form.querySelector('.meal-macro-grid');
+      const wrapper = document.createElement('div');
+      wrapper.className = 'field-label';
+      wrapper.innerHTML = `
+        <label class="field-label">Serving (grams)
+          <input id="food-grams" type="number" step="1" min="1" value="100" />
+        </label>
+      `;
+      if (macroGrid) {
+        form.insertBefore(wrapper, macroGrid);
+      } else {
+        form.prepend(wrapper);
+      }
+      gramsInput = document.getElementById('food-grams');
+      if (gramsInput) {
+        gramsInput.addEventListener('input', () => this.scaleFromGrams());
+      }
+    }
   },
 
-  closeModal(id) {
-    document.getElementById(id).classList.add('hidden');
-  },
+  openModal(id) { document.getElementById(id)?.classList.remove('hidden'); },
+  closeModal(id) { document.getElementById(id)?.classList.add('hidden'); },
+  hideResults(el) { if (el) { el.classList.add('hidden'); el.innerHTML = ''; } },
 
   async createMeal(mealType) {
     const sb = getSupabase();
     const userId = (await sb.auth.getUser()).data.user.id;
-    const today = localToday();
-
-    const { data, error } = await sb.from('meals').insert({
-      user_id: userId,
-      meal_type: mealType,
-      meal_date: today
-    }).select().single();
-
-    if (error) return alert(error.message);
-
-    this.meals.push({ id: data.id, meal_type: data.meal_type, items: [] });
-    this.sortMeals();
-    this.closeModal('meal-type-modal');
+    const now = new Date();
+    const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+    const res = await sb.from('meals').insert({ user_id: userId, meal_type: mealType, meal_date: today }).select().single();
+    if (res.error) return alert(res.error.message);
+    this.meals.push({ id: res.data.id, meal_type: res.data.meal_type, items: [] });
     this.renderMeals();
+    this.closeModal('meal-type-modal');
   },
 
-  async deleteMeal(mealId) {
+  async saveFoodFromForm() {
+    const food_name = document.getElementById('food-search').value.trim();
+    const calories = Number(document.getElementById('food-cal').value) || 0;
+    const protein = Number(document.getElementById('food-protein').value) || 0;
+    const fat = Number(document.getElementById('food-fat').value) || 0;
+    const carbs = Number(document.getElementById('food-carbs').value) || 0;
+    if (!food_name) return alert('Food name required.');
+    if (!this.currentMealId) return alert('Select a meal first.');
+
     const sb = getSupabase();
-    await sb.from('meals').delete().eq('id', mealId);
-    this.meals = this.meals.filter((m) => m.id !== mealId);
+    const userId = (await sb.auth.getUser()).data.user.id;
+    const res = await sb.from('meal_items').insert({
+      meal_id: this.currentMealId, user_id: userId,
+      food_name, calories, protein, fat, carbs
+    }).select().single();
+    if (res.error) return alert(res.error.message);
+
+    const meal = this.meals.find(m => m.id === this.currentMealId);
+    if (meal) meal.items.push(res.data);
+
+    this.closeModal('food-modal');
     this.renderMeals();
     this.updateTotals();
-    App.refreshMacros();
-  },
-
-  sortMeals() {
-    this.meals.sort((a, b) => {
-      const diff = (this.TYPE_ORDER[a.meal_type] ?? 9) - (this.TYPE_ORDER[b.meal_type] ?? 9);
-      return diff !== 0 ? diff : String(a.id).localeCompare(String(b.id));
-    });
   },
 
   openFoodModal(mealId) {
     this.currentMealId = mealId;
-    const meal = this.meals.find((m) => m.id === mealId);
-    document.getElementById('food-modal-title').textContent = meal
-      ? `Add Food to ${capitalize(meal.meal_type)}`
-      : 'Add Food';
-    this.resetFoodModal();
     this.openModal('food-modal');
-    document.getElementById('food-search').focus();
-  },
-
-  resetFoodModal() {
-    document.getElementById('food-search').value = '';
-    document.getElementById('food-cal').value = '';
-    document.getElementById('food-protein').value = '';
-    document.getElementById('food-fat').value = '';
-    document.getElementById('food-carbs').value = '';
+    document.getElementById('food-search')?.focus();
+    // Reset grams to 100 and clear any stored selection
+    const grams = document.getElementById('food-grams');
+    if (grams) grams.value = 100;
     this.selectedFood = null;
-    document.getElementById('serving-row').classList.add('hidden');
-    document.getElementById('food-serving').value = 100;
-    this.clearServingNote();
-    const resultsEl = document.getElementById('food-results');
-    this.hideResults(resultsEl);
-  },
-
-  applyServing(grams) {
-    if (!this.selectedFood) return;
-    const p = this.selectedFood.per100g || {};
-    const factor = grams / 100;
-
-    const set = (id, val) => {
+    // Clear macro fields
+    ['food-cal', 'food-protein', 'food-fat', 'food-carbs'].forEach(id => {
       const el = document.getElementById(id);
-      if (val == null) { el.value = ''; return; }
-      el.value = (id === 'food-cal' ? Math.round(val) : Math.round(val * 10) / 10);
-    };
-
-    set('food-cal', p.calories != null ? p.calories * factor : null);
-    set('food-protein', p.protein != null ? p.protein * factor : null);
-    set('food-fat', p.fat != null ? p.fat * factor : null);
-    set('food-carbs', p.carbs != null ? p.carbs * factor : null);
-
-    this.setServingNote(grams);
+      if (el) el.value = '';
+    });
   },
 
-  setServingNote(grams) {
-    const el = document.getElementById('serving-note');
-    if (!this.selectedFood) { el.textContent = ''; return; }
-    const p = this.selectedFood.per100g || {};
-    const complete = p.calories != null && p.protein != null && p.fat != null && p.carbs != null;
-    el.textContent = complete ? `${grams}g of ${this.selectedFood.name}` : 'Partial data — check values';
-  },
-
-  clearServingNote() {
-    document.getElementById('serving-note').textContent = '';
-  },
-
-  hideResults(el) {
-    el.classList.add('hidden');
-    el.innerHTML = '';
-  },
-
-  renderFoodResults(hits, el) {
-    el.innerHTML = '';
-    if (!hits.length) {
-      el.classList.remove('hidden');
-      el.innerHTML = '<div class="food-empty">No results. Enter macros manually below.</div>';
-      return;
+  async copyYesterday() {
+    const sb = getSupabase();
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const d = yesterday.getFullYear() + '-' + String(yesterday.getMonth() + 1).padStart(2, '0') + '-' + String(yesterday.getDate()).padStart(2, '0');
+    const { data: meals } = await sb.from('meals').select('id').eq('user_id', App.userId).eq('meal_date', d);
+    for (const m of (meals || [])) {
+      const { data: items } = await sb.from('meal_items').select('*').eq('meal_id', m.id);
+      const now = new Date();
+      const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+      const newMeal = await sb.from('meals').insert({ user_id: App.userId, meal_type: 'snack', meal_date: today }).select().single();
+      for (const it of (items || [])) {
+        await sb.from('meal_items').insert({
+          meal_id: newMeal.data.id, user_id: App.userId,
+          food_name: it.food_name, calories: it.calories, protein: it.protein, fat: it.fat, carbs: it.carbs
+        });
+      }
     }
+    this.load(App.userId, ++App.loadToken);
+  },
 
-    el.classList.remove('hidden');
-    for (const h of hits.slice(0, 8)) {
-      const b = h.per100g || {};
-      const isComplete = b.calories != null && b.protein != null && b.fat != null && b.carbs != null;
-      const sourceLabel = h.source === 'usda'
-        ? (h.dataType === 'Branded' ? 'USDA Branded' : 'USDA Generic')
-        : 'Open Food Facts';
+  async loadFavorites() {
+    const sb = getSupabase();
+    const { data } = await sb.from('favorite_foods').select('*').eq('user_id', App.userId);
+    const el = document.getElementById('favorites-container');
+    if (el) el.innerHTML = (data || []).map(f => `<button class="favorite-item" onclick="MealLog.quickAddFavorite('${f.id}')">⭐ ${escapeHtml(f.food_name)}</button>`).join('');
+  },
 
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'food-result';
-      btn.innerHTML = `
-        <span class="food-result-name">
-          <b>${escapeHtml(h.name)}</b>
-          ${h.brand ? `<small>${escapeHtml(h.brand)}</small>` : ''}
-          <small class="food-source ${isComplete ? 'complete' : 'partial'}">${sourceLabel}${isComplete ? '' : ' · partial'}</small>
-        </span>
-        <span class="food-macros">
-          ${b.calories != null ? Math.round(b.calories) + ' kcal' : '— kcal'} ·
-          P ${b.protein != null ? b.protein : '—'} ·
-          F ${b.fat != null ? b.fat : '—'} ·
-          C ${b.carbs != null ? b.carbs : '—'}
-          <small>per 100g</small>
-        </span>
-      `;
-
-      btn.addEventListener('click', () => {
-        this.selectedFood = { name: h.name, per100g: h.per100g || {} };
-        document.getElementById('food-search').value = h.name;
-        const servingRow = document.getElementById('serving-row');
-        const servingInput = document.getElementById('food-serving');
-        servingRow.classList.remove('hidden');
-        servingInput.value = 100;
-        this.applyServing(100);
-        this.hideResults(el);
-      });
-      el.appendChild(btn);
+  async quickAddFavorite(id) {
+    const sb = getSupabase();
+    const { data } = await sb.from('favorite_foods').select('*').eq('id', id).single();
+    if (data) {
+      document.getElementById('food-search').value = data.food_name;
+      document.getElementById('food-cal').value = data.calories;
+      document.getElementById('food-protein').value = data.protein;
+      document.getElementById('food-fat').value = data.fat;
+      document.getElementById('food-carbs').value = data.carbs;
     }
   },
 
   async load(userId, token) {
     const sb = getSupabase();
-    const today = localToday();
+    const now = new Date();
+    const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+    const { data: meals } = await sb.from('meals').select('*').eq('user_id', userId).eq('meal_date', today);
 
-    const { data: meals, error } = await sb.from('meals')
-      .select('id, meal_type')
-      .eq('user_id', userId)
-      .eq('meal_date', today);
+    if (token !== App.loadToken) return;
 
-    if (error) return console.error(error.message);
+    this.meals = [];
+    const seenMealIds = new Set();
 
-    // Build a fresh array locally; only commit it if this load is still current.
-    const freshMeals = [];
-    for (const m of meals || []) {
+    for (const m of (meals || [])) {
+      if (seenMealIds.has(m.id)) continue;
+      seenMealIds.add(m.id);
+
       const { data: items } = await sb.from('meal_items')
         .select('*')
         .eq('meal_id', m.id)
         .order('created_at', { ascending: true });
-      freshMeals.push({ id: m.id, meal_type: m.meal_type, items: items || [] });
+
+      const seenSignatures = new Set();
+      const uniqueItems = [];
+      for (const it of (items || [])) {
+        const sig = [it.food_name, it.calories, it.protein, it.fat, it.carbs].join('|');
+        if (seenSignatures.has(sig)) continue;
+        seenSignatures.add(sig);
+        uniqueItems.push(it);
+      }
+
+      this.meals.push({ id: m.id, meal_type: m.meal_type, items: uniqueItems });
     }
 
-    if (token !== App.loadToken) return; // stale load — discard
-
-    this.meals = freshMeals;
-    this.sortMeals();
     this.renderMeals();
     this.updateTotals();
   },
 
   renderMeals() {
     const container = document.getElementById('meals-container');
+    if (!container) return;
     container.innerHTML = '';
 
-    if (!this.meals.length) {
-      container.innerHTML = '<p class="muted">No meals yet today. Click "+ Add Meal" to get started.</p>';
-      return;
-    }
-
-    for (const meal of this.meals) {
+    this.meals.forEach(meal => {
       const totals = this.mealTotals(meal);
       const group = document.createElement('div');
       group.className = 'meal-group';
-
-      const typeEmoji = { breakfast: '🍳', lunch: '🥗', dinner: '🍽️', snack: '🍎' }[meal.meal_type] || '🍽️';
-
       group.innerHTML = `
         <div class="meal-group-header">
-          <span class="meal-type-badge">${typeEmoji} ${capitalize(meal.meal_type)}</span>
-          <span class="meal-group-totals">
-            ${Math.round(totals.calories)} kcal · P ${Math.round(totals.protein)} · F ${Math.round(totals.fat)} · C ${Math.round(totals.carbs)}
-          </span>
-          <button class="icon-btn delete-meal" data-meal-id="${meal.id}" title="Delete meal">✕</button>
+          <span class="meal-type-badge">${capitalize(meal.meal_type)}</span>
+          <span class="meal-group-totals">${Math.round(totals.calories)} kcal · P ${Math.round(totals.protein)} · F ${Math.round(totals.fat)} · C ${Math.round(totals.carbs)}</span>
+          <button class="icon-btn delete-meal" data-mid="${meal.id}" title="Delete meal">✕</button>
         </div>
-
         <div class="meal-items">
-          ${meal.items.length ? meal.items.map((it) => `
-            <div class="meal-item-row" data-item-id="${it.id}">
+          ${meal.items.map(it => `
+            <div class="meal-item-row">
               <span class="meal-item-name">${escapeHtml(it.food_name)}</span>
               <span class="meal-item-macros">${it.calories} kcal · P ${it.protein} · F ${it.fat} · C ${it.carbs}</span>
-              <button class="icon-btn delete-item" data-item-id="${it.id}" title="Delete food">✕</button>
-            </div>
-          `).join('') : '<div class="meal-item-empty muted">No foods yet.</div>'}
+              <button class="icon-btn delete-item" data-iid="${it.id}" title="Delete food">✕</button>
+            </div>`).join('') || '<div class="meal-item-empty muted">No foods.</div>'}
         </div>
-
-        <button class="btn btn-ghost add-food-btn" data-meal-id="${meal.id}">+ Add Food</button>
-      `;
-
-      group.querySelector('.delete-meal').addEventListener('click', () => {
-        if (confirm(`Delete this ${meal.meal_type} meal and all its foods?`)) this.deleteMeal(meal.id);
-      });
-
-      group.querySelector('.add-food-btn').addEventListener('click', () => this.openFoodModal(meal.id));
-
-      group.querySelectorAll('.delete-item').forEach((btn) => {
-        btn.addEventListener('click', () => this.deleteItem(btn.dataset.itemId));
-      });
-
+        <button class="btn btn-ghost add-food-btn" data-mid="${meal.id}">+ Add Food</button>`;
       container.appendChild(group);
-    }
+
+      group.querySelector('.delete-meal').addEventListener('click', () => this.deleteMeal(meal.id));
+      group.querySelector('.add-food-btn').addEventListener('click', () => this.openFoodModal(meal.id));
+      group.querySelectorAll('.delete-item').forEach(b => b.addEventListener('click', () => this.deleteItem(b.dataset.iid)));
+    });
+  },
+
+  async deleteMeal(id) {
+    const sb = getSupabase();
+    await sb.from('meals').delete().eq('id', id);
+    this.meals = this.meals.filter(m => m.id !== id);
+    this.renderMeals();
+    this.updateTotals();
+  },
+
+  async deleteItem(id) {
+    const sb = getSupabase();
+    await sb.from('meal_items').delete().eq('id', id);
+    this.meals.forEach(m => m.items = m.items.filter(i => i.id !== id));
+    this.renderMeals();
+    this.updateTotals();
   },
 
   mealTotals(meal) {
     const t = { calories: 0, protein: 0, fat: 0, carbs: 0 };
-    for (const it of meal.items) {
+    meal.items.forEach(it => {
       t.calories += Number(it.calories) || 0;
       t.protein += Number(it.protein) || 0;
       t.fat += Number(it.fat) || 0;
       t.carbs += Number(it.carbs) || 0;
-    }
+    });
     return t;
   },
 
-  async deleteItem(itemId) {
-    const sb = getSupabase();
-    await sb.from('meal_items').delete().eq('id', itemId);
-
-    for (const meal of this.meals) {
-      meal.items = meal.items.filter((it) => it.id !== itemId);
-    }
-
-    this.renderMeals();
-    this.updateTotals();
-    App.refreshMacros();
+  getTotals() {
+    const t = { calories: 0, protein: 0, fat: 0, carbs: 0 };
+    this.meals.forEach(m => {
+      const mt = this.mealTotals(m);
+      t.calories += mt.calories;
+      t.protein += mt.protein;
+      t.fat += mt.fat;
+      t.carbs += mt.carbs;
+    });
+    return t;
   },
 
   updateTotals() {
     const totals = this.getTotals();
     const el = document.getElementById('meal-total-row');
-    el.innerHTML = `<b>Daily Totals:</b> ${Math.round(totals.calories)} kcal · P ${Math.round(totals.protein)}g · F ${Math.round(totals.fat)}g · C ${Math.round(totals.carbs)}g`;
+    if (el) el.innerHTML = `<b>Totals:</b> ${Math.round(totals.calories)} kcal · P ${Math.round(totals.protein)}g · F ${Math.round(totals.fat)}g · C ${Math.round(totals.carbs)}g`;
     App.setTotals(totals);
-    return totals;
+    App.refreshMacros();
   },
 
-  getTotals() {
-    const t = { calories: 0, protein: 0, fat: 0, carbs: 0 };
-    for (const meal of this.meals) {
-      const m = this.mealTotals(meal);
-      t.calories += m.calories;
-      t.protein += m.protein;
-      t.fat += m.fat;
-      t.carbs += m.carbs;
+  renderFoodResults(hits, el) {
+    if (!el) return;
+    el.innerHTML = '';
+    if (!hits || !hits.length) {
+      el.classList.remove('hidden');
+      el.innerHTML = '<div class="food-empty">No results.</div>';
+      return;
     }
-    return t;
+    el.classList.remove('hidden');
+    hits.slice(0, 8).forEach(h => {
+      const b = h.per100g || {};
+      const btn = document.createElement('button');
+      btn.className = 'food-result';
+      btn.innerHTML = `
+        <b>${escapeHtml(h.name)}</b>
+        <span class="food-macros">
+          ${Math.round(b.calories || 0)} kcal · P ${b.protein || 0} · F ${b.fat || 0} · C ${b.carbs || 0} <small>(per 100g)</small>
+        </span>
+      `;
+      btn.addEventListener('click', () => this.selectFood(h, b));
+      el.appendChild(btn);
+    });
+  },
+
+  selectFood(h, b) {
+    // Store the per-100g data for scaling
+    this.selectedFood = { per100g: b };
+    document.getElementById('food-search').value = h.name;
+    // Set grams to 100 by default
+    const gramsInput = document.getElementById('food-grams');
+    if (gramsInput) gramsInput.value = 100;
+    // Fill macros with per-100g values (will be scaled by grams)
+    this.updateMacroFields(b, 100);
+  },
+
+  updateMacroFields(per100g, grams) {
+    const factor = grams / 100;
+    const calories = Math.round((per100g.calories || 0) * factor);
+    const protein = Math.round((per100g.protein || 0) * factor * 10) / 10;
+    const fat = Math.round((per100g.fat || 0) * factor * 10) / 10;
+    const carbs = Math.round((per100g.carbs || 0) * factor * 10) / 10;
+    document.getElementById('food-cal').value = calories;
+    document.getElementById('food-protein').value = protein;
+    document.getElementById('food-fat').value = fat;
+    document.getElementById('food-carbs').value = carbs;
+  },
+
+  scaleFromGrams() {
+    if (!this.selectedFood) return;
+    const gramsInput = document.getElementById('food-grams');
+    if (!gramsInput) return;
+    const grams = Number(gramsInput.value) || 0;
+    if (grams <= 0) return;
+    this.updateMacroFields(this.selectedFood.per100g, grams);
   }
 };
 
@@ -378,7 +342,5 @@ function capitalize(str) {
 }
 
 function escapeHtml(str) {
-  return String(str).replace(/[&<>"']/g, (c) => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-  }[c]));
+  return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }

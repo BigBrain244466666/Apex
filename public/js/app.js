@@ -16,37 +16,31 @@ var AuraLoading = {
   quoteTimer: null,
   shownAt: 0,
   hideTimer: null,
-  safetyTimer: null,
 
   show: function () {
     var el = document.getElementById('aura-loader');
     if (el) el.classList.remove('hidden-loader');
     this.shownAt = Date.now();
     this.startQuotes();
-
     var self = this;
-    if (this.safetyTimer) clearTimeout(this.safetyTimer);
-    this.safetyTimer = setTimeout(function () { self.hide(); }, 8000);
+    setTimeout(function () { self.hide(); }, 8000);
   },
 
   hide: function (callback) {
     var self = this;
     var elapsed = Date.now() - this.shownAt;
-    var minTime = 2000; // 2-second buffer
+    var minTime = 2000;
 
     function doHide() {
       var el = document.getElementById('aura-loader');
       if (el) el.classList.add('hidden-loader');
       if (self.hideTimer) { clearTimeout(self.hideTimer); self.hideTimer = null; }
       if (self.quoteTimer) { clearInterval(self.quoteTimer); self.quoteTimer = null; }
-      if (self.safetyTimer) { clearTimeout(self.safetyTimer); self.safetyTimer = null; }
       if (typeof callback === 'function') callback();
     }
 
     if (elapsed < minTime) {
-      if (!this.hideTimer) {
-        this.hideTimer = setTimeout(doHide, minTime - elapsed);
-      }
+      if (!this.hideTimer) this.hideTimer = setTimeout(doHide, minTime - elapsed);
     } else {
       doHide();
     }
@@ -56,13 +50,10 @@ var AuraLoading = {
     var self = this;
     var el = document.getElementById('aura-quote');
     if (!el) return;
-
     if (this.quoteTimer) clearInterval(this.quoteTimer);
-
     this.quoteIndex = Math.floor(Math.random() * AuraQuotes.length);
     el.textContent = AuraQuotes[this.quoteIndex];
     el.style.opacity = '1';
-
     this.quoteTimer = setInterval(function () {
       var quoteEl = document.getElementById('aura-quote');
       if (!quoteEl) return;
@@ -106,25 +97,23 @@ var App = {
     if (session) {
       AuraLoading.show();
       authView.classList.add('hidden');
-      dashView.classList.add('hidden'); // keep hidden until loader done
+      dashView.classList.add('hidden');
       this.userId = session.user.id;
       this.initApp();
     } else {
       authView.classList.add('hidden');
       dashView.classList.add('hidden');
       this.initAuth();
-      AuraLoading.hide(function () {
-        authView.classList.remove('hidden');
-      });
+      AuraLoading.hide(function () { authView.classList.remove('hidden'); });
     }
   },
 
-  revealDashboard() {
+  revealDashboard: function () {
     var dash = document.getElementById('dashboard-view');
     if (dash) dash.classList.remove('hidden');
   },
 
-  initAuth() {
+  initAuth: function () {
     if (this.authBound) return;
     this.authBound = true;
 
@@ -169,16 +158,13 @@ var App = {
     });
   },
 
-  initApp() {
+  initApp: function () {
     if (!this.appBound) {
       this.appBound = true;
 
-      // Sign out: show loader, then sign out after 2s
       document.getElementById('logout-btn').addEventListener('click', function () {
         AuraLoading.show();
-        setTimeout(function () {
-          Auth.signOut();
-        }, 2000);
+        setTimeout(function () { Auth.signOut(); }, 2000);
       });
 
       var navMap = {
@@ -187,6 +173,7 @@ var App = {
         'nav-watch': 'watch',
         'nav-gym': 'gym',
         'nav-history': 'history',
+        'nav-social': 'social',
         'nav-admin': 'admin'
       };
       Object.keys(navMap).forEach(function (navId) {
@@ -205,10 +192,7 @@ var App = {
           itemsHtml += '<button class="more-item" data-page-id="' + tab.id + '">' + tab.textContent.trim() + '</button>';
         });
         moreDropdown.innerHTML = itemsHtml;
-        moreBtn.addEventListener('click', function (e) {
-          e.stopPropagation();
-          moreDropdown.classList.toggle('hidden');
-        });
+        moreBtn.addEventListener('click', function (e) { e.stopPropagation(); moreDropdown.classList.toggle('hidden'); });
         moreDropdown.addEventListener('click', function (e) {
           var item = e.target.closest('.more-item');
           if (!item) return;
@@ -230,12 +214,17 @@ var App = {
           console.warn('Failed to bind ' + name + ': ' + err.message);
         }
       };
+      bind('ChartManager', typeof ChartManager !== 'undefined' ? ChartManager : null, 'init');
       bind('Profile', typeof Profile !== 'undefined' ? Profile : null, 'bindUI');
+      bind('Water', typeof Water !== 'undefined' ? Water : null, 'bindUI');
       bind('MealLog', typeof MealLog !== 'undefined' ? MealLog : null, 'bindUI');
       bind('Vitals', typeof Vitals !== 'undefined' ? Vitals : null, 'bindForm');
       bind('Gym', typeof Gym !== 'undefined' ? Gym : null, 'bindUI');
       bind('Huawei', typeof Huawei !== 'undefined' ? Huawei : null, 'bindUI');
+      bind('ManualWatch', typeof ManualWatch !== 'undefined' ? ManualWatch : null, 'bindUI');
       bind('History', typeof History !== 'undefined' ? History : null, 'bindUI');
+      bind('Friends', typeof Friends !== 'undefined' ? Friends : null, 'bindUI');
+      bind('Theme', typeof Theme !== 'undefined' ? Theme : null, 'bindUI');
       bind('Admin', typeof Admin !== 'undefined' ? Admin : null, 'bindUI');
     }
 
@@ -243,39 +232,29 @@ var App = {
     this.startPolling();
   },
 
-  startPolling() {
+  startPolling: function () {
     var self = this;
     if (this.pollTimer) return;
-    this.pollTimer = setInterval(function () {
-      if (self.userId) self.realtimeRefresh();
-    }, 30000);
+    this.pollTimer = setInterval(function () { if (self.userId) self.realtimeRefresh(); }, 30000);
   },
 
-  showPage(page) {
+  showPage: function (page) {
     this.currentPage = page;
     try { localStorage.setItem('apex-current-page', page); } catch (e) {}
-    var pages = ['dashboard', 'nutrition', 'watch', 'gym', 'history', 'admin'];
+    var pages = ['dashboard', 'nutrition', 'watch', 'gym', 'history', 'social', 'admin'];
     pages.forEach(function (p) {
       var el = document.getElementById('page-' + p);
       var nav = document.getElementById('nav-' + p);
       if (!el || !nav) return;
-      if (p === page) {
-        el.classList.remove('hidden');
-        nav.classList.add('active');
-      } else {
-        el.classList.add('hidden');
-        nav.classList.remove('active');
-      }
+      if (p === page) { el.classList.remove('hidden'); nav.classList.add('active'); }
+      else { el.classList.add('hidden'); nav.classList.remove('active'); }
     });
   },
 
   async loadDashboardData() {
     var token = ++this.loadToken;
     var sb = getSupabase();
-    if (!sb) {
-      AuraLoading.hide();
-      return;
-    }
+    if (!sb) { AuraLoading.hide(); return; }
 
     try {
       var res = await sb.from('profiles').select('*').eq('user_id', this.userId).maybeSingle();
@@ -284,7 +263,7 @@ var App = {
 
       var isAdmin = !!(prof && prof.is_admin === true);
       var adminNav = document.getElementById('nav-admin');
-      var normalNavs = ['nav-dashboard', 'nav-nutrition', 'nav-watch', 'nav-gym', 'nav-history'];
+      var normalNavs = ['nav-dashboard', 'nav-nutrition', 'nav-watch', 'nav-gym', 'nav-history', 'nav-social'];
       var profileBtn = document.getElementById('profile-btn');
 
       if (isAdmin) {
@@ -296,7 +275,7 @@ var App = {
         if (profileBtn) profileBtn.classList.add('hidden');
         this.showPage('admin');
         if (typeof Admin !== 'undefined') await Admin.load(this.userId, token);
-        AuraLoading.hide(App.revealDashboard.bind(App));
+        AuraLoading.hide(this.revealDashboard.bind(this));
         return;
       }
 
@@ -305,7 +284,15 @@ var App = {
         var el = document.getElementById(id);
         if (el) el.classList.remove('hidden');
       });
-      if (profileBtn) profileBtn.classList.remove('hidden');
+
+      if (profileBtn) {
+        profileBtn.classList.remove('hidden');
+        var displayName = '';
+        if (prof && prof.display_name) displayName = prof.display_name;
+        else if (prof && prof.email) displayName = prof.email.split('@')[0];
+        else displayName = 'Profile';
+        profileBtn.textContent = displayName;
+      }
 
       var p = prof || {};
       function toggle(id, condition) {
@@ -314,16 +301,13 @@ var App = {
       }
       toggle('meal-card-section', p.meals_enabled === false);
       toggle('huawei-tiles-section', p.huawei_enabled === false);
-      toggle('settings-card-section', p.huawei_enabled === false);
-
-      if (typeof Huawei !== 'undefined') await Huawei.init(this.userId);
 
       await this.refreshModules(token);
       if (typeof Dashboard.renderOverview === 'function') await Dashboard.renderOverview();
 
       var lastPage = null;
       try { lastPage = localStorage.getItem('apex-current-page'); } catch (e) {}
-      var allowedPages = ['dashboard', 'nutrition', 'watch', 'gym', 'history'];
+      var allowedPages = ['dashboard', 'nutrition', 'watch', 'gym', 'history', 'social'];
       if (lastPage && allowedPages.indexOf(lastPage) !== -1) this.showPage(lastPage);
       else this.showPage('dashboard');
 
@@ -331,22 +315,23 @@ var App = {
     } catch (err) {
       console.error('Dashboard load error:', err);
     } finally {
-      // Always hide loader with 2s buffer, then reveal dashboard
-      AuraLoading.hide(App.revealDashboard.bind(App));
+      AuraLoading.hide(this.revealDashboard.bind(this));
     }
   },
 
   async refreshModules(token) {
     var tasks = [];
     function run(module, method) {
-      try {
-        if (module && typeof module[method] === 'function') tasks.push(module[method](App.userId, token));
-      } catch (e) { console.warn(e.message); }
+      try { if (module && typeof module[method] === 'function') tasks.push(module[method](App.userId, token)); }
+      catch (e) { console.warn(e.message); }
     }
+    run(typeof Water !== 'undefined' ? Water : null, 'load');
     run(typeof MealLog !== 'undefined' ? MealLog : null, 'load');
     run(typeof Vitals !== 'undefined' ? Vitals : null, 'load');
     run(typeof Gym !== 'undefined' ? Gym : null, 'load');
     run(typeof History !== 'undefined' ? History : null, 'load');
+    run(typeof Friends !== 'undefined' ? Friends : null, 'load');
+    run(typeof ManualWatch !== 'undefined' ? ManualWatch : null, 'loadHistory');
     await Promise.allSettled(tasks);
     if (token === App.loadToken) App.refreshMacros();
   },
@@ -363,8 +348,8 @@ var App = {
     try { if (typeof Dashboard.renderOverview === 'function') await Dashboard.renderOverview(); } catch (e) {}
   },
 
-  setTotals(totals) { this.totals = totals; },
-  refreshMacros() {
+  setTotals: function (totals) { this.totals = totals; },
+  refreshMacros: function () {
     try { Dashboard.renderMacroBars(MealLog.getTotals()); } catch (e) { console.warn(e.message); }
   }
 };

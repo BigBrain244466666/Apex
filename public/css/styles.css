@@ -863,3 +863,118 @@ html, body {
 }
 
 .nav-tab.hidden { display: none !important; }
+
+/* ============ Friends Section Cleanup ============ */
+.social-page {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.friends-card, .friend-progress-card {
+  height: fit-content;
+}
+
+.friend-add-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.friend-add-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.friend-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.8rem;
+  background: var(--surface-2, #1c2129);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 10px;
+  margin-bottom: 0.5rem;
+}
+
+.friend-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--accent, #4d6bfe);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.friend-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.friend-name {
+  font-weight: 600;
+}
+
+.friend-email {
+  font-size: 0.75rem;
+  color: var(--muted, #8b949e);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.friend-actions {
+  display: flex;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.remove-friend {
+  color: var(--red, #f85149);
+}
+
+.friend-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.friend-stats-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.friend-stat {
+  background: var(--surface-2, #1c2129);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 8px;
+  padding: 0.6rem;
+  text-align: center;
+}
+
+.friend-stat span {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--muted, #8b949e);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.friend-stat b {
+  font-size: 1.15rem;
+}
+
+.friend-data h4 {
+  margin: 0.75rem 0 0.4rem;
+  font-size: 0.9rem;
+}

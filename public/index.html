@@ -14,7 +14,9 @@
   <link rel="apple-touch-icon" href="/icons/icon.svg" />
   <link rel="manifest" href="/manifest.json" />
   <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="stylesheet" href="/css/features.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style id="aura-loader-styles">
     #aura-loader{position:fixed;inset:0;z-index:9999;background:#0d1117;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2rem;transition:opacity .6s ease,visibility .6s ease;overflow:hidden}
@@ -26,15 +28,15 @@
     .aura-ring:nth-child(3){animation-delay:1.2s;border-color:rgba(139,148,158,.18)}
     .aura-ring:nth-child(4){animation-delay:1.8s;border-color:rgba(77,107,254,.15)}
     .aura-particle{position:absolute;width:6px;height:6px;border-radius:50%;background:#e6edf3;box-shadow:0 0 10px rgba(230,237,243,.7);animation:aura-orbit 4s linear infinite;z-index:2}
-    .aura-particle:nth-child(5){background:#8b949e;box-shadow:0 0 10px rgba(139,148,158,.7);animation-duration:5s}
-    .aura-particle:nth-child(6){background:#4d6bfe;box-shadow:0 0 10px rgba(77,107,254,.7);animation-duration:6s}
-    .aura-particle:nth-child(7){width:4px;height:4px;background:#e6edf3;box-shadow:0 0 8px rgba(230,237,243,.6);animation-duration:4.6s}
-    .aura-wordmark{font-size:1.4rem;font-weight:700;letter-spacing:-.5px;color:#e6edf3;opacity:.95}
+    .aura-particle:nth-child(5){background:#8b949e;animation-duration:5s}
+    .aura-particle:nth-child(6){background:#4d6bfe;animation-duration:6s}
+    .aura-particle:nth-child(7){width:4px;height:4px;background:#e6edf3;animation-duration:4.6s}
+    .aura-wordmark{font-size:1.4rem;font-weight:700;letter-spacing:-.5px;color:#e6edf3}
     .aura-wordmark span{color:#4d6bfe}
     .aura-quote-wrap{min-height:3rem;max-width:320px;padding:0 1.5rem;text-align:center}
-    .aura-quote{font-size:.95rem;color:#8b949e;line-height:1.5;transition:opacity .5s ease,transform .5s ease}
+    .aura-quote{font-size:.95rem;color:#8b949e;line-height:1.5;transition:opacity .5s ease}
     .aura-progress{width:180px;height:3px;border-radius:999px;background:#1c2129;overflow:hidden}
-    .aura-progress-fill{height:100%;width:40%;border-radius:999px;background:#4d6bfe;box-shadow:0 0 12px rgba(77,107,254,.8);animation:aura-progress-slide 1.6s ease-in-out infinite}
+    .aura-progress-fill{height:100%;width:40%;background:#4d6bfe;animation:aura-progress-slide 1.6s ease-in-out infinite}
     @keyframes aura-core-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
     @keyframes aura-ring-expand{0%{transform:scale(.5);opacity:.9}100%{transform:scale(2.4);opacity:0}}
     @keyframes aura-orbit{0%{transform:rotate(0) translateX(52px) rotate(0)}100%{transform:rotate(360deg) translateX(52px) rotate(-360deg)}}
@@ -45,14 +47,8 @@
 
   <div id="aura-loader">
     <div class="aura-orb">
-      <div class="aura-ring"></div>
-      <div class="aura-ring"></div>
-      <div class="aura-ring"></div>
-      <div class="aura-ring"></div>
-      <div class="aura-particle"></div>
-      <div class="aura-particle"></div>
-      <div class="aura-particle"></div>
-      <div class="aura-particle"></div>
+      <div class="aura-ring"></div><div class="aura-ring"></div><div class="aura-ring"></div><div class="aura-ring"></div>
+      <div class="aura-particle"></div><div class="aura-particle"></div><div class="aura-particle"></div><div class="aura-particle"></div>
       <div class="aura-orb-core"></div>
     </div>
     <div class="aura-wordmark">Apex<span>Recomp</span></div>
@@ -68,11 +64,9 @@
         <button id="tab-login" class="auth-tab active">Sign In</button>
         <button id="tab-signup" class="auth-tab">Create Account</button>
       </div>
-      <form id="auth-form" autocomplete="on">
-        <label class="field-label" for="auth-email">Email</label>
-        <input id="auth-email" type="email" required autocomplete="email" placeholder="you@example.com" />
-        <label class="field-label" for="auth-password">Password</label>
-        <input id="auth-password" type="password" required minlength="6" autocomplete="current-password" placeholder="••••••••" />
+      <form id="auth-form">
+        <label class="field-label">Email<input id="auth-email" type="email" required /></label>
+        <label class="field-label">Password<input id="auth-password" type="password" required minlength="6" /></label>
         <p id="auth-error" class="form-error hidden"></p>
         <button id="auth-submit" type="submit" class="btn btn-primary btn-block">Sign In</button>
       </form>
@@ -88,10 +82,12 @@
         <button id="nav-watch" class="nav-tab" data-more="true">Watch</button>
         <button id="nav-gym" class="nav-tab" data-more="true">Gym</button>
         <button id="nav-history" class="nav-tab" data-more="true">History</button>
+        <button id="nav-social" class="nav-tab" data-more="true">Social</button>
         <button id="nav-admin" class="nav-tab hidden" data-more="true">Admin</button>
         <button id="nav-more" class="nav-tab nav-more-btn hidden">More ▾</button>
         <div id="more-dropdown" class="more-dropdown hidden"></div>
       </nav>
+      <button id="theme-toggle" class="btn btn-ghost">🌓</button>
       <button id="profile-btn" class="btn btn-ghost">Profile</button>
       <button id="logout-btn" class="btn btn-ghost">Sign Out</button>
     </header>
@@ -107,22 +103,42 @@
         <div id="overview-stats" class="overview-stats-grid"></div>
       </section>
       <section class="card chart-card">
-        <h2 class="card-title">Weight Trend</h2>
-        <div id="overview-weight-chart" class="overview-chart-wrap"></div>
+        <h3 class="card-title">Weight Trend</h3>
+        <div class="chart-wrapper"><canvas id="weight-chart"></canvas></div>
       </section>
       <section class="card chart-card">
-        <h2 class="card-title">Calorie Trend</h2>
-        <div id="overview-calorie-chart" class="overview-chart-wrap"></div>
+        <h3 class="card-title">Daily Target Adherence</h3>
+        <div class="chart-wrapper"><canvas id="macro-radar"></canvas></div>
+      </section>
+      <section class="card chart-card">
+        <h3 class="card-title">Body Composition</h3>
+        <div class="chart-wrapper"><canvas id="macro-donut"></canvas></div>
+      </section>
+      <section class="card chart-card">
+        <h3 class="card-title">Weekly Volume</h3>
+        <div class="chart-wrapper"><canvas id="calorie-chart"></canvas></div>
       </section>
     </main>
 
     <main id="page-nutrition" class="nutrition-page hidden">
+      <section class="card water-card">
+        <h2 class="card-title">Water</h2>
+        <div class="water-row">
+          <input id="water-amount" type="number" value="250" min="0" step="50" />
+          <button id="add-water-btn" class="btn btn-outline">+ Add</button>
+          <span id="water-total" class="water-total">0.00 L</span>
+        </div>
+      </section>
       <section id="meal-card-section" class="card meal-card">
         <div class="card-head">
-          <h2 class="card-title">Today's Meals</h2>
-          <button id="add-meal-btn" class="btn btn-outline">+ Add Meal</button>
+          <h2 class="card-title">Meals</h2>
+          <div>
+            <button id="copy-meals-btn" class="btn btn-ghost">Copy Yesterday</button>
+            <button id="add-meal-btn" class="btn btn-outline">+ Meal</button>
+          </div>
         </div>
         <div id="meals-container"></div>
+        <div id="favorites-container" class="favorites-container"></div>
         <p class="meal-total" id="meal-total-row"></p>
       </section>
     </main>
@@ -130,25 +146,37 @@
     <main id="page-watch" class="watch-page hidden">
       <section id="settings-card-section" class="card settings-card">
         <div class="settings-row">
-          <div>
-            <h3 class="card-title">Huawei Health</h3>
-            <span id="huawei-status-badge" class="status-badge">…</span>
-          </div>
           <span class="settings-label">Enable watch data</span>
-          <label class="switch">
-            <input id="huawei-toggle" type="checkbox" checked />
-            <span class="slider"></span>
-          </label>
-          <button id="huawei-connect-btn" class="btn btn-outline">Connect Huawei</button>
+          <label class="switch"><input id="huawei-toggle" type="checkbox" checked /><span class="slider"></span></label>
         </div>
       </section>
       <section id="huawei-tiles-section" class="huawei-tiles">
-        <div class="tile"><div class="tile-title">Sleep</div><div id="tile-sleep"><p class="muted">—</p></div></div>
-        <div class="tile"><div class="tile-title">Steps</div><div id="tile-steps"><p class="muted">—</p></div></div>
-        <div class="tile"><div class="tile-title">Calories</div><div id="tile-calories"><p class="muted">—</p></div></div>
-        <div class="tile"><div class="tile-title">Heart Rate</div><div id="tile-heart"><p class="muted">—</p></div></div>
-        <div class="tile"><div class="tile-title">SpO₂</div><div id="tile-spo2"><p class="muted">—</p></div></div>
-        <div id="huawei-note" class="huawei-note"></div>
+        <div class="tile"><div class="tile-title">Sleep</div><div id="tile-sleep">—</div></div>
+        <div class="tile"><div class="tile-title">Steps</div><div id="tile-steps">—</div></div>
+        <div class="tile"><div class="tile-title">Calories</div><div id="tile-calories">—</div></div>
+        <div class="tile"><div class="tile-title">Heart Rate</div><div id="tile-heart">—</div></div>
+        <div class="tile"><div class="tile-title">SpO₂</div><div id="tile-spo2">—</div></div>
+      </section>
+      <section class="card manual-watch-card">
+        <h2 class="card-title">Manual Entry</h2>
+        <form id="manual-watch-form" class="manual-watch-form">
+          <label class="field-label">Date <input id="manual-watch-date" type="date" required /></label>
+          <input id="manual-sleep" type="text" placeholder="Sleep hours (e.g. 7.5)" />
+          <input id="manual-steps" type="number" placeholder="Steps" />
+          <input id="manual-hr" type="number" placeholder="Resting HR" />
+          <button type="submit" class="btn btn-outline">Log</button>
+          <span id="manual-watch-result" class="muted"></span>
+        </form>
+      </section>
+
+      <section class="card watch-charts-card">
+        <h2 class="card-title">History (Last 7 Days)</h2>
+        <div class="watch-charts-grid">
+          <div class="chart-wrapper"><canvas id="watch-steps-chart"></canvas></div>
+          <div class="chart-wrapper"><canvas id="watch-sleep-chart"></canvas></div>
+          <div class="chart-wrapper"><canvas id="watch-hr-chart"></canvas></div>
+        </div>
+        <div id="previous-day-score"></div>
       </section>
     </main>
 
@@ -158,50 +186,95 @@
         <form id="vitals-form" class="vitals-form">
           <div class="vitals-grid">
             <label>Date <input id="vitals-date" type="date" required /></label>
-            <label>Morning Weight (lbs) <input id="vitals-weight" type="number" step="0.1" min="0" /></label>
+            <label>Weight (lbs) <input id="vitals-weight" type="number" step="0.1" min="0" /></label>
             <label>Waist (cm) <input id="vitals-waist" type="number" step="0.1" min="0" /></label>
             <label>Neck (cm) <input id="vitals-neck" type="number" step="0.1" min="0" /></label>
           </div>
-          <label class="field-label">Strength / Gym Notes</label>
-          <textarea id="vitals-notes" rows="2" placeholder="e.g. Squat 225×5, bench felt strong"></textarea>
+          <textarea id="vitals-notes" rows="2" placeholder="Notes"></textarea>
           <button type="submit" class="btn btn-primary btn-block">Save Entry</button>
         </form>
         <div class="table-wrap">
           <table class="data-table" id="vitals-table">
-            <thead><tr><th>Date</th><th>Weight</th><th>7d Avg</th><th>Waist</th><th>Est. BF%</th><th>Notes</th><th></th></tr></thead>
+            <thead><tr><th>Date</th><th>Weight</th><th>7d Avg</th><th>Waist</th><th>BF%</th><th>Notes</th><th></th></tr></thead>
             <tbody id="vitals-tbody"></tbody>
           </table>
         </div>
       </section>
+
       <section class="card workouts-card">
         <div class="card-head">
-          <h2 class="card-title">Active Workouts</h2>
+          <h2 class="card-title">Workouts</h2>
           <div class="new-workout-row">
             <input id="new-workout-date" type="date" />
-            <input id="new-workout-time" type="time" title="Start time" />
+            <input id="new-workout-time" type="time" />
             <button id="new-workout-btn" class="btn btn-primary">+ New Workout</button>
           </div>
         </div>
         <div id="workouts-container"></div>
+        <div class="workout-tools">
+          <div class="rest-timer-row">
+            <input id="rest-time" type="number" value="90" min="0" />
+            <button id="rest-timer-btn" class="btn btn-outline">Rest</button>
+            <span id="rest-timer-display" class="rest-timer-display hidden"></span>
+          </div>
+          <div class="template-row">
+            <input id="template-name" type="text" placeholder="Template name" />
+            <button id="save-template-btn" class="btn btn-outline">Save</button>
+            <select id="load-template-select"><option value="">Load template…</option></select>
+          </div>
+          <div id="pr-badges" class="pr-badges"></div>
+        </div>
+      </section>
+
+      <section class="card pr-entry-card">
+        <h2 class="card-title">Personal Records</h2>
+        <form id="pr-form" class="pr-form">
+          <select id="pr-lift">
+            <option value="Barbell Squat">Barbell Squat</option>
+            <option value="Barbell Bench Press">Barbell Bench Press</option>
+            <option value="Barbell Deadlift">Barbell Deadlift</option>
+          </select>
+          <input id="pr-weight" type="number" placeholder="1-rep max (lbs)" min="0" />
+          <input id="pr-date" type="date" />
+          <button type="submit" class="btn btn-primary">Save PR</button>
+        </form>
+        <div id="pr-list-manual" class="pr-list"></div>
       </section>
     </main>
 
     <main id="page-history" class="history-page hidden">
       <section class="card hist-card">
         <div class="card-head">
-          <h2 class="card-title">Daily Intake History</h2>
-          <select id="history-meal-date" class="trend-select"><option value="">— Select day —</option></select>
+          <h2 class="card-title">Intake History</h2>
+          <select id="history-meal-date"><option value="">— Select day —</option></select>
         </div>
         <div id="history-meal-day"></div>
-        <div id="history-meal-trend" class="hist-trend"></div>
       </section>
       <section class="card hist-card">
         <div class="card-head">
           <h2 class="card-title">Workout History</h2>
-          <select id="history-workout-date" class="trend-select"><option value="">— Select day —</option></select>
+          <select id="history-workout-date"><option value="">— Select day —</option></select>
         </div>
         <div id="history-workout-day"></div>
-        <div id="history-workout-trend" class="hist-trend"></div>
+      </section>
+    </main>
+
+    <main id="page-social" class="social-page hidden">
+      <section class="card friends-card">
+        <h2 class="card-title">Friends</h2>
+        <div class="friend-add-row">
+          <input id="friend-email" type="email" placeholder="Friend's email" />
+          <button id="add-friend-btn" class="btn btn-outline">Add</button>
+        </div>
+        <h3>Pending</h3>
+        <div id="friends-pending"></div>
+        <h3>Friends</h3>
+        <div id="friends-list"></div>
+      </section>
+      <section class="card friend-progress-card">
+        <h2 class="card-title">Friend Progress</h2>
+        <select id="friend-select"><option value="">Select friend…</option></select>
+        <div id="friend-data" class="friend-data"></div>
       </section>
     </main>
 
@@ -213,11 +286,27 @@
         </div>
         <div id="admin-stats"></div>
       </section>
+
+      <section class="card admin-chart-card">
+        <h3 class="card-title">Meals per User</h3>
+        <div class="chart-wrapper"><canvas id="admin-meals-chart"></canvas></div>
+      </section>
+
+      <section class="card admin-chart-card">
+        <h3 class="card-title">Workouts per User</h3>
+        <div class="chart-wrapper"><canvas id="admin-workouts-chart"></canvas></div>
+      </section>
+
+      <section class="card admin-chart-card">
+        <h3 class="card-title">Workout Completion</h3>
+        <div class="chart-wrapper"><canvas id="admin-activity-donut"></canvas></div>
+      </section>
+
       <section class="card admin-users-card">
         <h2 class="card-title">Users</h2>
         <div class="table-wrap">
           <table class="data-table">
-            <thead><tr><th>Email</th><th>Role</th><th>Weight</th><th>Meals</th><th>Gym</th><th>History</th><th>Huawei</th></tr></thead>
+            <thead><tr><th>Email</th><th>Weight</th><th>Meals</th><th>Gym</th><th>History</th><th>Huawei</th><th></th></tr></thead>
             <tbody id="admin-users-tbody"></tbody>
           </table>
         </div>
@@ -230,29 +319,30 @@
     <div class="modal-card">
       <div class="modal-head"><h3>Edit Profile</h3><button class="icon-btn" data-close-modal="profile-modal">✕</button></div>
       <form id="profile-form" class="profile-form">
-        <label class="field-label">Display Name <input id="profile-name" type="text" placeholder="Your name" /></label>
+        <label class="field-label">Display Name <input id="profile-name" type="text" /></label>
         <div class="profile-grid">
-          <label class="field-label">Weight (lbs) <input id="profile-weight" type="number" step="0.1" min="0" /></label>
-          <label class="field-label">Height (cm) <input id="profile-height" type="number" step="0.1" min="0" /></label>
-          <label class="field-label">Body Fat % <input id="profile-bodyfat" type="number" step="0.1" min="0" /></label>
-          <label class="field-label">Body Fat Goal <input id="profile-goal" type="text" placeholder="10-12%" /></label>
+          <label>Weight (lbs) <input id="profile-weight" type="number" /></label>
+          <label>Height (cm) <input id="profile-height" type="number" /></label>
+          <label>Body Fat % <input id="profile-bodyfat" type="number" /></label>
+          <label>Goal <input id="profile-goal" type="text" /></label>
         </div>
-        <label class="field-label">Gym Frequency <input id="profile-gym" type="text" placeholder="5 days/week" /></label>
-        <label class="field-label">Activity Level
+        <label>Gym Frequency <input id="profile-gym" type="text" /></label>
+        <label>Step Goal <input id="profile-step-goal" type="number" /></label>
+        <label>Activity Level
           <select id="profile-activity">
             <option value="sedentary">Sedentary</option>
-            <option value="light">Light (1-3 days/week)</option>
-            <option value="moderate" selected>Moderate (3-5 days/week)</option>
-            <option value="active">Active (6-7 days/week)</option>
+            <option value="light">Light</option>
+            <option value="moderate" selected>Moderate</option>
+            <option value="active">Active</option>
             <option value="very_active">Very Active</option>
           </select>
         </label>
         <button type="button" id="auto-calc-btn" class="btn btn-outline btn-block">Auto-calculate Targets</button>
         <div class="profile-grid">
-          <label class="field-label">Calories <input id="profile-cal" type="number" min="0" /></label>
-          <label class="field-label">Protein (g) <input id="profile-protein" type="number" min="0" /></label>
-          <label class="field-label">Fat (g) <input id="profile-fat" type="number" min="0" /></label>
-          <label class="field-label">Carbs (g) <input id="profile-carbs" type="number" min="0" /></label>
+          <label>Calories <input id="profile-cal" type="number" /></label>
+          <label>Protein <input id="profile-protein" type="number" /></label>
+          <label>Fat <input id="profile-fat" type="number" /></label>
+          <label>Carbs <input id="profile-carbs" type="number" /></label>
         </div>
         <button type="submit" class="btn btn-primary btn-block">Save Profile</button>
       </form>
@@ -262,7 +352,6 @@
   <div id="meal-type-modal" class="modal hidden">
     <div class="modal-backdrop" data-close-modal="meal-type-modal"></div>
     <div class="modal-card modal-small">
-      <div class="modal-head"><h3>New Meal</h3><button class="icon-btn" data-close-modal="meal-type-modal">✕</button></div>
       <div class="meal-type-grid">
         <button class="meal-type-btn" data-type="breakfast">🍳 Breakfast</button>
         <button class="meal-type-btn" data-type="lunch">🥗 Lunch</button>
@@ -275,20 +364,15 @@
   <div id="food-modal" class="modal hidden">
     <div class="modal-backdrop" data-close-modal="food-modal"></div>
     <div class="modal-card">
-      <div class="modal-head"><h3 id="food-modal-title">Add Food</h3><button class="icon-btn" data-close-modal="food-modal">✕</button></div>
+      <div class="modal-head"><h3>Add Food</h3><button class="icon-btn" data-close-modal="food-modal">✕</button></div>
       <form id="food-form" class="food-form">
-        <input id="food-search" type="text" placeholder="Search food (e.g. Swiss cheese)…" autocomplete="off" />
+        <input id="food-search" type="text" placeholder="Search food…" />
         <div id="food-results" class="food-results hidden"></div>
-        <div id="serving-row" class="serving-row hidden">
-          <label class="field-label">Serving size <input id="food-serving" type="number" min="0" step="1" value="100" /></label>
-          <span class="serving-unit">grams</span>
-          <span id="serving-note" class="serving-note"></span>
-        </div>
         <div class="meal-macro-grid">
-          <label>Calories <input id="food-cal" type="number" min="0" required /></label>
-          <label>Protein (g) <input id="food-protein" type="number" min="0" step="0.1" required /></label>
-          <label>Fat (g) <input id="food-fat" type="number" min="0" step="0.1" required /></label>
-          <label>Carbs (g) <input id="food-carbs" type="number" min="0" step="0.1" required /></label>
+          <label>Calories <input id="food-cal" type="number" /></label>
+          <label>Protein <input id="food-protein" type="number" /></label>
+          <label>Fat <input id="food-fat" type="number" /></label>
+          <label>Carbs <input id="food-carbs" type="number" /></label>
         </div>
         <button type="submit" class="btn btn-primary btn-block">Add Food</button>
       </form>
@@ -298,13 +382,20 @@
   <script src="/js/config.js"></script>
   <script src="/js/api.js"></script>
   <script src="/js/auth.js"></script>
+  <script src="/js/charts.js"></script>
   <script src="/js/dashboard.js"></script>
   <script src="/js/profile.js"></script>
+  <script src="/js/water.js"></script>
   <script src="/js/mealLog.js"></script>
   <script src="/js/vitals.js"></script>
   <script src="/js/gym.js"></script>
   <script src="/js/huawei.js"></script>
+  <script src="/js/manualWatch.js"></script>
   <script src="/js/history.js"></script>
+  <script src="/js/friends.js"></script>
+  <script src="/js/theme.js"></script>
+  <script src="/js/export.js"></script>
+  <script src="/js/notifications.js"></script>
   <script src="/js/admin.js"></script>
   <script src="/js/app.js"></script>
 </body>
