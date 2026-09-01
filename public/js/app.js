@@ -1,53 +1,145 @@
-const App = {
+/* ============ Apex app — final with 1s loader-first reveal ============ */
+
+var AuraQuotes = [
+  'The grind doesn\'t care how you feel. Show up.',
+  'You\'re one workout from a better mood.',
+  'Discipline is choosing what you want most over what you want now.',
+  'The only bad workout is the one that didn\'t happen.',
+  'Recomp is slow. Consistency is the cheat code.',
+  'Strong body. Sharp mind. Apex standard.',
+  'Every rep is a vote for who you\'re becoming.',
+  'Progress is invisible until it isn\'t. Keep going.',
+  'You are not tired. You are becoming.',
+  'Apex: the highest point. That\'s the target.'
+];
+
+var AuraLoading = {
+  quoteIndex: 0,
+  quoteTimer: null,
+  shownAt: 0,
+  hideTimer: null,
+
+  show: function () {
+    var el = document.getElementById('aura-loader');
+    if (el) el.classList.remove('hidden-loader');
+    this.shownAt = Date.now();
+    this.startQuotes();
+  },
+
+  hide: function () {
+    var self = this;
+    var elapsed = Date.now() - this.shownAt;
+    var minTime = 2000;
+
+    function doHide() {
+      var el = document.getElementById('aura-loader');
+      if (el) el.classList.add('hidden-loader');
+      if (self.hideTimer) { clearTimeout(self.hideTimer); self.hideTimer = null; }
+      if (self.quoteTimer) { clearInterval(self.quoteTimer); self.quoteTimer = null; }
+    }
+
+    if (elapsed < minTime) {
+      if (!this.hideTimer) this.hideTimer = setTimeout(doHide, minTime - elapsed);
+    } else {
+      doHide();
+    }
+  },
+
+  startQuotes: function () {
+    var self = this;
+    var el = document.getElementById('aura-quote');
+    if (!el) return;
+
+    if (this.quoteTimer) clearInterval(this.quoteTimer);
+
+    this.quoteIndex = Math.floor(Math.random() * AuraQuotes.length);
+    el.textContent = AuraQuotes[this.quoteIndex];
+    el.style.opacity = '1';
+
+    this.quoteTimer = setInterval(function () {
+      var quoteEl = document.getElementById('aura-quote');
+      if (!quoteEl) return;
+
+      quoteEl.style.opacity = '0';
+
+      setTimeout(function () {
+        self.quoteIndex = (self.quoteIndex + 1) % AuraQuotes.length;
+        quoteEl.textContent = AuraQuotes[self.quoteIndex];
+        quoteEl.style.opacity = '1';
+      }, 400);
+    }, 2000);
+  }
+};
+
+var App = {
   totals: { calories: 0, protein: 0, fat: 0, carbs: 0 },
   authBound: false,
   appBound: false,
   userId: null,
   loadToken: 0,
   currentPage: 'dashboard',
+  pollTimer: null,
+  revealTimer: null,
 
   async boot() {
+    AuraLoading.show();
     try {
       await loadAppConfig();
-      const session = await Auth.getSession();
+      var session = await Auth.getSession();
       this.route(session);
-      Auth.onAuthChange(function (session) {
-        App.route(session);
-      });
+      Auth.onAuthChange(function (session) { App.route(session); });
     } catch (err) {
       console.error('Boot failed:', err);
+      AuraLoading.hide();
     }
   },
 
   route(session) {
-    const authView = document.getElementById('auth-view');
-    const dashView = document.getElementById('dashboard-view');
-
+    var authView = document.getElementById('auth-view');
+    var dashView = document.getElementById('dashboard-view');
     if (!authView || !dashView) return;
 
     if (session) {
+      AuraLoading.show();
       authView.classList.add('hidden');
-      dashView.classList.remove('hidden');
+      dashView.classList.add('hidden');   // keep hidden until loader is visible for 1s
       this.userId = session.user.id;
-      if (typeof initRealtime === 'function') initRealtime(this.userId);
       this.initApp();
+      // do NOT reveal here — completeLoad() will after 1s
     } else {
       authView.classList.remove('hidden');
       dashView.classList.add('hidden');
       this.initAuth();
+      AuraLoading.hide();
     }
+  },
+
+  completeLoad() {
+    var self = this;
+    var dash = document.getElementById('dashboard-view');
+    if (!dash) return;
+
+    var elapsed = AuraLoading.shownAt ? Date.now() - AuraLoading.shownAt : 0;
+    var wait = Math.max(0, 1000 - elapsed); // reveal dashboard after 1s
+
+    if (this.revealTimer) clearTimeout(this.revealTimer);
+    this.revealTimer = setTimeout(function () {
+      dash.classList.remove('hidden');
+      AuraLoading.hide();
+      self.revealTimer = null;
+    }, wait);
   },
 
   initAuth() {
     if (this.authBound) return;
     this.authBound = true;
 
-    const form = document.getElementById('auth-form');
-    const loginTab = document.getElementById('tab-login');
-    const signupTab = document.getElementById('tab-signup');
-    const submitBtn = document.getElementById('auth-submit');
-    const errEl = document.getElementById('auth-error');
-    let mode = 'login';
+    var form = document.getElementById('auth-form');
+    var loginTab = document.getElementById('tab-login');
+    var signupTab = document.getElementById('tab-signup');
+    var submitBtn = document.getElementById('auth-submit');
+    var errEl = document.getElementById('auth-error');
+    var mode = 'login';
 
     function setMode(m) {
       mode = m;
@@ -62,11 +154,10 @@ const App = {
 
     form.addEventListener('submit', async function (e) {
       e.preventDefault();
-      const email = document.getElementById('auth-email').value.trim();
-      const password = document.getElementById('auth-password').value;
+      var email = document.getElementById('auth-email').value.trim();
+      var password = document.getElementById('auth-password').value;
       errEl.classList.add('hidden');
       submitBtn.disabled = true;
-
       try {
         if (mode === 'signup') {
           await Auth.signUp(email, password);
@@ -88,14 +179,15 @@ const App = {
     if (!this.appBound) {
       this.appBound = true;
 
-      const logoutBtn = document.getElementById('logout-btn');
+      var logoutBtn = document.getElementById('logout-btn');
       if (logoutBtn) {
         logoutBtn.addEventListener('click', function () {
-          Auth.signOut();
+          AuraLoading.show();
+          setTimeout(function () { Auth.signOut(); }, 2000);
         });
       }
 
-      const navMap = {
+      var navMap = {
         'nav-dashboard': 'dashboard',
         'nav-nutrition': 'nutrition',
         'nav-watch': 'watch',
@@ -105,22 +197,17 @@ const App = {
       };
 
       Object.keys(navMap).forEach(function (navId) {
-        const el = document.getElementById(navId);
+        var el = document.getElementById(navId);
         if (el) {
-          const pageId = navMap[navId];
-          el.addEventListener('click', function () {
-            App.showPage(pageId);
-          });
+          var pageId = navMap[navId];
+          el.addEventListener('click', function () { App.showPage(pageId); });
         }
       });
 
-      const bind = function (name, module, method) {
+      var bind = function (name, module, method) {
         try {
-          if (module && typeof module[method] === 'function') {
-            module[method]();
-          } else {
-            console.warn('Module ' + name + ' missing');
-          }
+          if (module && typeof module[method] === 'function') module[method]();
+          else console.warn('Module ' + name + ' missing');
         } catch (err) {
           console.warn('Failed to bind ' + name + ': ' + err.message);
         }
@@ -136,19 +223,25 @@ const App = {
     }
 
     this.loadDashboardData();
+    this.startPolling();
+  },
+
+  startPolling() {
+    var self = this;
+    if (this.pollTimer) return;
+    this.pollTimer = setInterval(function () {
+      if (self.userId) self.realtimeRefresh();
+    }, 30000);
   },
 
   showPage(page) {
     this.currentPage = page;
+    try { localStorage.setItem('apex-current-page', page); } catch (e) {}
 
-    try {
-      localStorage.setItem('apex-current-page', page);
-    } catch (e) {}
-
-    const pages = ['dashboard', 'nutrition', 'watch', 'gym', 'history', 'admin'];
+    var pages = ['dashboard', 'nutrition', 'watch', 'gym', 'history', 'admin'];
     pages.forEach(function (p) {
-      const el = document.getElementById('page-' + p);
-      const nav = document.getElementById('nav-' + p);
+      var el = document.getElementById('page-' + p);
+      var nav = document.getElementById('nav-' + p);
       if (!el || !nav) return;
       if (p === page) {
         el.classList.remove('hidden');
@@ -161,33 +254,34 @@ const App = {
   },
 
   async loadDashboardData() {
-    const token = ++this.loadToken;
-    const sb = getSupabase();
-    if (!sb) return;
+    var token = ++this.loadToken;
+    var sb = getSupabase();
+    if (!sb) {
+      this.completeLoad();
+      return;
+    }
 
-    let prof = null;
+    var prof = null;
     try {
-      const { data } = await sb.from('profiles')
-        .select('*')
-        .eq('user_id', this.userId)
-        .maybeSingle();
-      prof = data || null;
+      var res = await sb.from('profiles').select('*').eq('user_id', this.userId).maybeSingle();
+      prof = res.data || null;
     } catch (err) {
       console.error('Profile fetch failed:', err.message);
+      this.completeLoad();
       return;
     }
 
     Dashboard.profile = prof;
 
-    const isAdmin = !!(prof && prof.is_admin === true);
-    const adminNav = document.getElementById('nav-admin');
-    const normalNavs = ['nav-dashboard', 'nav-nutrition', 'nav-watch', 'nav-gym', 'nav-history'];
-    const profileBtn = document.getElementById('profile-btn');
+    var isAdmin = !!(prof && prof.is_admin === true);
+    var adminNav = document.getElementById('nav-admin');
+    var normalNavs = ['nav-dashboard', 'nav-nutrition', 'nav-watch', 'nav-gym', 'nav-history'];
+    var profileBtn = document.getElementById('profile-btn');
 
     if (isAdmin) {
       adminNav.classList.remove('hidden');
       normalNavs.forEach(function (id) {
-        const el = document.getElementById(id);
+        var el = document.getElementById(id);
         if (el) el.classList.add('hidden');
       });
       if (profileBtn) profileBtn.classList.add('hidden');
@@ -197,21 +291,23 @@ const App = {
       } catch (e) {
         console.error('Admin load failed:', e.message);
       }
+      this.completeLoad();
       return;
     }
 
     adminNav.classList.add('hidden');
     normalNavs.forEach(function (id) {
-      const el = document.getElementById(id);
+      var el = document.getElementById(id);
       if (el) el.classList.remove('hidden');
     });
     if (profileBtn) profileBtn.classList.remove('hidden');
 
-    const p = prof || {};
-    const toggle = function (id, condition) {
-      const el = document.getElementById(id);
+    var p = prof || {};
+    function toggle(id, condition) {
+      var el = document.getElementById(id);
       if (el) el.classList.toggle('hidden', condition);
-    };
+    }
+
     toggle('meal-card-section', p.meals_enabled === false);
     toggle('huawei-tiles-section', p.huawei_enabled === false);
     toggle('settings-card-section', p.huawei_enabled === false);
@@ -230,34 +326,28 @@ const App = {
       console.warn('Overview failed: ' + e.message);
     }
 
-    let lastPage = null;
-    try {
-      lastPage = localStorage.getItem('apex-current-page');
-    } catch (e) {}
+    var lastPage = null;
+    try { lastPage = localStorage.getItem('apex-current-page'); } catch (e) {}
+    var allowedPages = ['dashboard', 'nutrition', 'watch', 'gym', 'history'];
+    if (lastPage && allowedPages.indexOf(lastPage) !== -1) this.showPage(lastPage);
+    else this.showPage('dashboard');
 
-    const allowedPages = ['dashboard', 'nutrition', 'watch', 'gym', 'history'];
-    if (lastPage && allowedPages.indexOf(lastPage) !== -1) {
-      this.showPage(lastPage);
-    } else {
-      this.showPage('dashboard');
-    }
+    if (token === this.loadToken) this.refreshMacros();
 
-    if (token === this.loadToken) {
-      this.refreshMacros();
-    }
+    this.completeLoad();
   },
 
   async refreshModules(token) {
-    const tasks = [];
-    const run = function (module, method) {
+    var tasks = [];
+    function run(module, method) {
       try {
         if (module && typeof module[method] === 'function') {
           tasks.push(module[method](App.userId, token));
         }
-      } catch (err) {
-        console.warn(method + ' failed: ' + err.message);
+      } catch (e) {
+        console.warn(e.message);
       }
-    };
+    }
 
     run(typeof MealLog !== 'undefined' ? MealLog : null, 'load');
     run(typeof Vitals !== 'undefined' ? Vitals : null, 'load');
@@ -266,22 +356,17 @@ const App = {
 
     await Promise.allSettled(tasks);
 
-    if (token === App.loadToken) {
-      App.refreshMacros();
-    }
+    if (token === App.loadToken) App.refreshMacros();
   },
 
   async realtimeRefresh() {
-    const token = ++this.loadToken;
-    const sb = getSupabase();
+    var token = ++this.loadToken;
+    var sb = getSupabase();
     if (!sb || !this.userId) return;
 
     try {
-      const { data } = await sb.from('profiles')
-        .select('*')
-        .eq('user_id', this.userId)
-        .maybeSingle();
-      Dashboard.profile = data || null;
+      var res = await sb.from('profiles').select('*').eq('user_id', this.userId).maybeSingle();
+      Dashboard.profile = res.data || null;
     } catch (e) {}
 
     await this.refreshModules(token);
@@ -291,25 +376,11 @@ const App = {
     } catch (e) {}
   },
 
-  setTotals(totals) {
-    this.totals = totals;
-  },
+  setTotals(totals) { this.totals = totals; },
 
   refreshMacros() {
-    try {
-      Dashboard.renderMacroBars(MealLog.getTotals());
-    } catch (err) {
-      console.warn('Macro refresh failed: ' + err.message);
-    }
+    try { Dashboard.renderMacroBars(MealLog.getTotals()); } catch (e) { console.warn(e.message); }
   }
 };
 
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', function () {
-    navigator.serviceWorker.register('/sw.js').catch(function () {});
-  });
-}
-
-document.addEventListener('DOMContentLoaded', function () {
-  App.boot();
-});
+document.addEventListener('DOMContentLoaded', function () { App.boot(); });
