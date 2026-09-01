@@ -1,17 +1,27 @@
-exports.handler = async function () {
+exports.handler = async function (event) {
   const headers = {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*'
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type'
   };
+
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 204, headers: headers, body: '' };
+  }
 
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+  // Diagnostic: report exactly what's missing (without leaking secrets).
   if (!supabaseUrl || !serviceKey) {
+    const missing = [];
+    if (!supabaseUrl) missing.push('SUPABASE_URL');
+    if (!serviceKey) missing.push('SUPABASE_SERVICE_ROLE_KEY');
     return {
       statusCode: 500,
       headers: headers,
-      body: JSON.stringify({ error: 'Missing SUPABASE_SERVICE_ROLE_KEY in Netlify env vars.' })
+      body: JSON.stringify({ error: 'Missing env vars: ' + missing.join(', ') })
     };
   }
 
@@ -31,6 +41,7 @@ exports.handler = async function () {
     vitals: 'id'
   };
 
+  // Diagnostic fetchCount that throws instead of returning 0.
   const fetchCount = async function (table, filter) {
     const col = tableId[table] || 'id';
     let url = base + '/' + table + '?select=' + col;
@@ -40,8 +51,7 @@ exports.handler = async function () {
 
     if (!r.ok) {
       const body = await r.text();
-      console.error('[Admin] ' + table + ' HTTP ' + r.status + ': ' + body.slice(0, 300));
-      return 0;
+      throw new Error(table + ' HTTP ' + r.status + ' — ' + body.slice(0, 400));
     }
 
     const rows = await r.json();
@@ -56,38 +66,6 @@ exports.handler = async function () {
     const completedWorkouts = await fetchCount('workouts', 'completed=eq.true');
     const totalVitals = await fetchCount('vitals', '');
 
-    // Average daily calories.
-    let avgDailyCalories = 0;
-    try {
-      const mealsRes = await fetch(base + '/meals?select=id,meal_date', { headers: apiHeaders });
-      const itemsRes = await fetch(base + '/meal_items?select=meal_id,calories', { headers: apiHeaders });
-
-      const meals = mealsRes.ok ? await mealsRes.json() : [];
-      const items = itemsRes.ok ? await itemsRes.json() : [];
-
-      const calByMeal = {};
-      for (const it of items) {
-        const key = it.meal_id;
-        calByMeal[key] = (calByMeal[key] || 0) + (Number(it.calories) || 0);
-      }
-
-      const calByDate = {};
-      for (const meal of meals) {
-        const date = meal.meal_date;
-        const cals = calByMeal[meal.id] || 0;
-        calByDate[date] = (calByDate[date] || 0) + cals;
-      }
-
-      const dates = Object.keys(calByDate);
-      if (dates.length > 0) {
-        let total = 0;
-        for (const d of dates) total += calByDate[d];
-        avgDailyCalories = Math.round(total / dates.length);
-      }
-    } catch (e) {
-      console.error('[Admin] avg calories error:', e.message);
-    }
-
     return {
       statusCode: 200,
       headers: headers,
@@ -98,13 +76,14 @@ exports.handler = async function () {
         totalWorkouts: totalWorkouts,
         completedWorkouts: completedWorkouts,
         totalVitals: totalVitals,
-        avgDailyCalories: avgDailyCalories,
+        avgDailyCalories: 0,
         lastActivity: new Date().toISOString()
       })
     };
   } catch (err) {
+    // This now returns the REAL error to the browser.
     return {
-      statusCode: 502,
+      statusCode: 500,
       headers: headers,
       body: JSON.stringify({ error: err.message })
     };

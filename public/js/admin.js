@@ -1,19 +1,8 @@
-/* ============================================================
-   Admin.js — complete admin panel module
-   Features:
-   - Load all non-admin users
-   - Render user table with block toggles
-   - Load global stats from /api/admin/stats or Netlify function
-   - Show avg daily calories + last activity
-   - Toggle meal/gym/history/huawei blocks per user
-   ============================================================ */
-
 const Admin = {
   bound: false,
   users: [],
   stats: null,
 
-  /* ---- Bind UI events (once) ---- */
   bindUI() {
     if (this.bound) return;
     this.bound = true;
@@ -26,15 +15,10 @@ const Admin = {
     }
   },
 
-  /* ---- Main load: fetch users, then stats ---- */
   async load(userId, token) {
     const sb = getSupabase();
-    if (!sb) {
-      console.error('Admin: no Supabase client');
-      return;
-    }
+    if (!sb) return;
 
-    // Fetch all profiles.
     const { data: users, error } = await sb.from('profiles')
       .select('*')
       .order('created_at', { ascending: false });
@@ -44,12 +28,9 @@ const Admin = {
       return;
     }
 
-    // Respect the load token so stale loads don't overwrite.
     if (token && token !== App.loadToken) return;
 
-    // Exclude admin accounts from the managed user list.
-    const allUsers = users || [];
-    this.users = allUsers.filter(function (u) {
+    this.users = (users || []).filter(function (u) {
       return !u.is_admin;
     });
 
@@ -57,7 +38,6 @@ const Admin = {
     await this.loadStats();
   },
 
-  /* ---- Load global stats from the backend ---- */
   async loadStats() {
     const statsEl = document.getElementById('admin-stats');
     if (!statsEl) return;
@@ -65,24 +45,25 @@ const Admin = {
     statsEl.innerHTML = '<p class="muted">Loading stats…</p>';
 
     try {
-      const url = window.IS_LOCAL
-        ? '/api/admin/stats'
-        : '/.netlify/functions/admin-stats';
-      this.stats = await apiGet(url);
+      const sb = getSupabase();
+      const { data, error } = await sb.rpc('get_admin_stats');
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      this.stats = data || {};
       this.renderStats();
     } catch (err) {
       statsEl.innerHTML = '<p class="muted">Stats unavailable: ' + escapeHtml(err.message) + '</p>';
     }
   },
 
-  /* ---- Render the six stat cards + summary ---- */
   renderStats() {
     const el = document.getElementById('admin-stats');
     if (!el) return;
 
     const s = this.stats || {};
-
-    // Use filtered users count directly (admin excluded).
     const totalUsers = this.users.length;
 
     const cards = [
@@ -104,7 +85,6 @@ const Admin = {
         '</div>';
     }
 
-    // Average calories: show number + kcal, or N/A if missing.
     const avg = (s.avgDailyCalories && s.avgDailyCalories > 0)
       ? s.avgDailyCalories + ' kcal'
       : 'N/A';
@@ -113,16 +93,14 @@ const Admin = {
       ? new Date(s.lastActivity).toLocaleString()
       : 'N/A';
 
-    const extraHtml =
+    el.innerHTML =
+      '<div class="admin-stats-grid">' + cardHtml + '</div>' +
       '<div class="admin-stats-extra">' +
       '<p>Avg calories per logged day: <b>' + avg + '</b></p>' +
       '<p>Last activity: <b>' + lastActivity + '</b></p>' +
       '</div>';
-
-    el.innerHTML = '<div class="admin-stats-grid">' + cardHtml + '</div>' + extraHtml;
   },
 
-  /* ---- Render the user management table ---- */
   renderUserTable() {
     const tbody = document.getElementById('admin-users-tbody');
     if (!tbody) return;
@@ -164,9 +142,7 @@ const Admin = {
       tbody.appendChild(tr);
     }
 
-    // Attach change handlers to all toggles.
-    const checkboxes = tbody.querySelectorAll('input[type="checkbox"]');
-    checkboxes.forEach(function (cb) {
+    tbody.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
       cb.addEventListener('change', async function () {
         const userId = cb.dataset.user;
         const key = cb.dataset.key;
@@ -175,11 +151,8 @@ const Admin = {
     });
   },
 
-  /* ---- Toggle a feature block for a user ---- */
   async toggleBlock(userId, key, value) {
     const sb = getSupabase();
-    if (!sb) return;
-
     const update = {};
     update[key] = value;
 
@@ -193,16 +166,8 @@ const Admin = {
   }
 };
 
-/* ---- Escape HTML to prevent injection in table cells ---- */
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, function (c) {
-    const map = {
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#39;'
-    };
-    return map[c];
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
   });
 }
