@@ -28,11 +28,8 @@ const App = {
       authView.classList.add('hidden');
       dashView.classList.remove('hidden');
       this.userId = session.user.id;
+      if (typeof initRealtime === 'function') initRealtime(this.userId);
       this.initApp();
-    } else {
-      authView.classList.remove('hidden');
-      dashView.classList.add('hidden');
-      this.initAuth();
     }
   },
 
@@ -95,6 +92,8 @@ const App = {
 
       const navMap = {
         'nav-dashboard': 'dashboard',
+        'nav-nutrition': 'nutrition',
+        'nav-watch': 'watch',
         'nav-gym': 'gym',
         'nav-history': 'history',
         'nav-admin': 'admin'
@@ -135,7 +134,7 @@ const App = {
   },
 
   showPage(page) {
-    const pages = ['dashboard', 'gym', 'history', 'admin'];
+    const pages = ['dashboard', 'nutrition', 'watch', 'gym', 'history', 'admin'];
     pages.forEach(function (p) {
       const el = document.getElementById('page-' + p);
       const nav = document.getElementById('nav-' + p);
@@ -170,9 +169,8 @@ const App = {
     Dashboard.profile = prof;
 
     const isAdmin = !!(prof && prof.is_admin === true);
-
     const adminNav = document.getElementById('nav-admin');
-    const normalNavs = ['nav-dashboard', 'nav-gym', 'nav-history'];
+    const normalNavs = ['nav-dashboard', 'nav-nutrition', 'nav-watch', 'nav-gym', 'nav-history'];
     const profileBtn = document.getElementById('profile-btn');
 
     if (isAdmin) {
@@ -238,6 +236,12 @@ const App = {
     run(typeof History !== 'undefined' ? History : null, 'load');
 
     await Promise.allSettled(tasks);
+
+    try {
+      await Dashboard.renderOverview();
+    } catch (err) {
+      console.warn('Overview failed: ' + err.message);
+    }
 
     if (token === this.loadToken) {
       this.refreshMacros();

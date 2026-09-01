@@ -14,8 +14,8 @@ const Profile = {
       await Profile.save();
     });
 
-    document.getElementById('auto-calc-btn').addEventListener('click', function () {
-      Profile.autoCalculate();
+    document.getElementById('auto-calc-btn').addEventListener('click', async function () {
+      await Profile.autoCalculate();
     });
 
     document.querySelectorAll('[data-close-modal="profile-modal"]').forEach(function (el) {
@@ -50,14 +50,25 @@ const Profile = {
     document.getElementById('profile-modal').classList.add('hidden');
   },
 
-  autoCalculate() {
+  async autoCalculate() {
     const weightLbs = Number(document.getElementById('profile-weight').value);
     const heightCm = Number(document.getElementById('profile-height').value);
-    const bodyFat = Number(document.getElementById('profile-bodyfat').value);
     const activity = document.getElementById('profile-activity').value;
 
-    if (!weightLbs || !heightCm || !bodyFat) {
-      alert('Please enter weight, height, and body fat % first.');
+    if (!weightLbs || !heightCm) {
+      alert('Please enter weight and height first.');
+      return;
+    }
+
+    // Prefer the latest measured body fat from vitals.
+    let bodyFat = Number(document.getElementById('profile-bodyfat').value);
+    if (!bodyFat && typeof Vitals !== 'undefined' && Vitals.latestBodyFat) {
+      const measured = Vitals.latestBodyFat();
+      if (measured) bodyFat = measured;
+    }
+
+    if (!bodyFat) {
+      alert('Please enter body fat %, or log waist + neck in Body Metrics first.');
       return;
     }
 
@@ -115,7 +126,7 @@ const Profile = {
       Object.assign(Dashboard.profile, updates);
     }
 
-    this.close();
+    Profile.close();
     App.refreshMacros();
   }
 };
