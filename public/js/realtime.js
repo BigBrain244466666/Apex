@@ -1,4 +1,5 @@
-/* Real-time sync: subscribes to Supabase changes and auto-refreshes the UI. */
+/* Real-time sync: subscribes to Supabase changes and auto-refreshes the UI
+   WITHOUT navigating away from the current tab. */
 
 let realtimeTimer = null;
 let realtimeChannel = null;
@@ -33,8 +34,8 @@ function initRealtime(userId) {
       function () {
         clearTimeout(realtimeTimer);
         realtimeTimer = setTimeout(function () {
-          if (typeof App !== 'undefined' && App.loadDashboardData) {
-            App.loadDashboardData();
+          if (typeof App !== 'undefined' && App.realtimeRefresh) {
+            App.realtimeRefresh();
           }
         }, 500);
       }

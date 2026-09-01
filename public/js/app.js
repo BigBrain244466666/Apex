@@ -4,6 +4,7 @@ const App = {
   appBound: false,
   userId: null,
   loadToken: 0,
+  currentPage: 'dashboard',
 
   async boot() {
     try {
@@ -30,6 +31,10 @@ const App = {
       this.userId = session.user.id;
       if (typeof initRealtime === 'function') initRealtime(this.userId);
       this.initApp();
+    } else {
+      authView.classList.remove('hidden');
+      dashView.classList.add('hidden');
+      this.initAuth();
     }
   },
 
@@ -134,6 +139,12 @@ const App = {
   },
 
   showPage(page) {
+    this.currentPage = page;
+
+    try {
+      localStorage.setItem('apex-current-page', page);
+    } catch (e) {}
+
     const pages = ['dashboard', 'nutrition', 'watch', 'gym', 'history', 'admin'];
     pages.forEach(function (p) {
       const el = document.getElementById('page-' + p);
@@ -179,14 +190,12 @@ const App = {
         const el = document.getElementById(id);
         if (el) el.classList.add('hidden');
       });
-
       if (profileBtn) profileBtn.classList.add('hidden');
-
       this.showPage('admin');
       try {
         if (typeof Admin !== 'undefined') await Admin.load(this.userId, token);
-      } catch (err) {
-        console.error('Admin load failed:', err);
+      } catch (e) {
+        console.error('Admin load failed:', e.message);
       }
       return;
     }
@@ -196,30 +205,50 @@ const App = {
       const el = document.getElementById(id);
       if (el) el.classList.remove('hidden');
     });
-
     if (profileBtn) profileBtn.classList.remove('hidden');
 
-    this.showPage('dashboard');
-
     const p = prof || {};
-
     const toggle = function (id, condition) {
       const el = document.getElementById(id);
       if (el) el.classList.toggle('hidden', condition);
     };
-
     toggle('meal-card-section', p.meals_enabled === false);
     toggle('huawei-tiles-section', p.huawei_enabled === false);
     toggle('settings-card-section', p.huawei_enabled === false);
 
     try {
       if (typeof Huawei !== 'undefined') await Huawei.init(this.userId);
-    } catch (err) {
-      console.warn('Huawei init failed: ' + err.message);
+    } catch (e) {
+      console.warn('Huawei init failed: ' + e.message);
     }
 
-    const tasks = [];
+    await this.refreshModules(token);
 
+    try {
+      await Dashboard.renderOverview();
+    } catch (e) {
+      console.warn('Overview failed: ' + e.message);
+    }
+
+    let lastPage = null;
+    try {
+      lastPage = localStorage.getItem('apex-current-page');
+    } catch (e) {}
+
+    const allowedPages = ['dashboard', 'nutrition', 'watch', 'gym', 'history'];
+    if (lastPage && allowedPages.indexOf(lastPage) !== -1) {
+      this.showPage(lastPage);
+    } else {
+      this.showPage('dashboard');
+    }
+
+    if (token === this.loadToken) {
+      this.refreshMacros();
+    }
+  },
+
+  async refreshModules(token) {
+    const tasks = [];
     const run = function (module, method) {
       try {
         if (module && typeof module[method] === 'function') {
@@ -237,15 +266,29 @@ const App = {
 
     await Promise.allSettled(tasks);
 
+    if (token === App.loadToken) {
+      App.refreshMacros();
+    }
+  },
+
+  async realtimeRefresh() {
+    const token = ++this.loadToken;
+    const sb = getSupabase();
+    if (!sb || !this.userId) return;
+
+    try {
+      const { data } = await sb.from('profiles')
+        .select('*')
+        .eq('user_id', this.userId)
+        .maybeSingle();
+      Dashboard.profile = data || null;
+    } catch (e) {}
+
+    await this.refreshModules(token);
+
     try {
       await Dashboard.renderOverview();
-    } catch (err) {
-      console.warn('Overview failed: ' + err.message);
-    }
-
-    if (token === this.loadToken) {
-      this.refreshMacros();
-    }
+    } catch (e) {}
   },
 
   setTotals(totals) {
