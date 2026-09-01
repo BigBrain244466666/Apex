@@ -7,7 +7,13 @@ const DEFAULT_PROFILE = {
   calorie_target: 2100,
   protein_target: 170,
   fat_target: 60,
-  carb_target: 220
+  carb_target: 220,
+  is_admin: false,
+  meals_enabled: true,
+  gym_enabled: true,
+  history_enabled: true,
+  vitals_enabled: true,
+  huawei_enabled: true
 };
 
 const SEED_BREAKFAST_ITEMS = [
@@ -30,7 +36,6 @@ const Dashboard = {
   profilePromise: null,
 
   ensureProfile(userId) {
-    // Cache the in-flight promise so concurrent calls don't double-seed.
     if (this.profile) return Promise.resolve(this.profile);
     if (this.profilePromise) return this.profilePromise;
 
@@ -40,25 +45,51 @@ const Dashboard = {
 
   async _doEnsureProfile(userId) {
     const sb = getSupabase();
-    const { data } = await sb.from('profiles').select('*').eq('user_id', userId).maybeSingle();
-    if (data) {
-      this.profile = data;
-      return data;
+
+    const { data: existing } = await sb.from('profiles')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (existing) {
+      this.profile = existing;
+      return existing;
     }
 
-    const profileRow = { user_id: userId, ...DEFAULT_PROFILE };
+    const user = (await sb.auth.getUser()).data.user;
+    const isAdminEmail = user && user.email === 'admin@apex.local';
+
+    const profileRow = {
+      user_id: userId,
+      email: user ? user.email : null,
+      is_admin: isAdminEmail,
+      ...DEFAULT_PROFILE
+    };
+
     await sb.from('profiles').insert(profileRow);
 
-    const today = new Date().toISOString().slice(0, 10);
-    const { data: meal } = await sb.from('meals').insert({
-      user_id: userId,
-      meal_type: 'breakfast',
-      meal_date: today
-    }).select().single();
+    if (!isAdminEmail) {
+      const today = new Date().toISOString().slice(0, 10);
+      const { data: meal } = await sb.from('meals').insert({
+        user_id: userId,
+        meal_type: 'breakfast',
+        meal_date: today
+      }).select().single();
 
-    if (meal) {
-      const items = SEED_BREAKFAST_ITEMS.map((it) => ({ meal_id: meal.id, user_id: userId, ...it }));
-      await sb.from('meal_items').insert(items);
+      if (meal) {
+        const items = SEED_BREAKFAST_ITEMS.map(function (it) {
+          return {
+            meal_id: meal.id,
+            user_id: userId,
+            food_name: it.food_name,
+            calories: it.calories,
+            protein: it.protein,
+            fat: it.fat,
+            carbs: it.carbs
+          };
+        });
+        await sb.from('meal_items').insert(items);
+      }
     }
 
     this.profile = profileRow;
@@ -72,10 +103,10 @@ const Dashboard = {
 
     el.innerHTML = '';
     const targets = {
-      calories: this.profile?.calorie_target ?? DEFAULT_PROFILE.calorie_target,
-      protein: this.profile?.protein_target ?? DEFAULT_PROFILE.protein_target,
-      fat: this.profile?.fat_target ?? DEFAULT_PROFILE.fat_target,
-      carbs: this.profile?.carb_target ?? DEFAULT_PROFILE.carb_target
+      calories: this.profile && this.profile.calorie_target ? this.profile.calorie_target : DEFAULT_PROFILE.calorie_target,
+      protein: this.profile && this.profile.protein_target ? this.profile.protein_target : DEFAULT_PROFILE.protein_target,
+      fat: this.profile && this.profile.fat_target ? this.profile.fat_target : DEFAULT_PROFILE.fat_target,
+      carbs: this.profile && this.profile.carb_target ? this.profile.carb_target : DEFAULT_PROFILE.carb_target
     };
 
     for (const m of MACRO_STYLES) {

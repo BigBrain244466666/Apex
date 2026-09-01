@@ -16,6 +16,20 @@ const Gym = {
   },
 
   bindUI() {
+    const dateInput = document.getElementById('new-workout-date');
+    const timeInput = document.getElementById('new-workout-time');
+
+    if (dateInput && !dateInput.value) {
+      dateInput.value = new Date().toISOString().slice(0, 10);
+    }
+
+    if (timeInput && !timeInput.value) {
+      const now = new Date();
+      const hh = String(now.getHours()).padStart(2, '0');
+      const mm = String(now.getMinutes()).padStart(2, '0');
+      timeInput.value = hh + ':' + mm;
+    }
+    
     if (this.bound) return;
     this.bound = true;
 

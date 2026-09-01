@@ -1,4 +1,4 @@
-/* ============ Apex Recomp & Health Tracker — COMPLETE styles ============ */
+/* ============ Apex Recomp & Health Tracker — COMPLETE FINAL styles ============ */
 :root {
   --bg: #0d1117;
   --surface: #161b22;
@@ -109,7 +109,7 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 .nav-tab.active { background: var(--accent); color: #fff; }
 
 /* ============ Main layout ============ */
-.dashboard, .gym-page, .history-page {
+.dashboard, .gym-page, .history-page, .admin-page {
   display: grid;
   gap: 1.25rem;
   padding: 1.25rem 1.5rem 3rem;
@@ -120,7 +120,8 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 }
 
 .macro-card, .meal-card, .settings-card, .trends-card,
-.hist-card, .huawei-tiles, .huawei-note { grid-column: 1 / -1; }
+.hist-card, .admin-stats-card, .admin-users-card,
+.huawei-tiles, .huawei-note { grid-column: 1 / -1; }
 
 .card {
   background: var(--surface); border: 1px solid var(--border);
@@ -192,15 +193,8 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 .workout-date { font-weight: 700; }
 .workout-time { font-size: 0.75rem; }
 .workout-volume { margin-left: auto; font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
-.complete-workout-btn {
-  color: var(--green);
-  border-color: var(--green);
-}
-.complete-workout-btn:hover {
-  background: rgba(46, 160, 67, 0.1);
-  color: var(--green);
-  border-color: var(--green);
-}
+.complete-workout-btn { color: var(--green); border-color: var(--green); }
+.complete-workout-btn:hover { background: rgba(46, 160, 67, 0.1); color: var(--green); border-color: var(--green); }
 .workout-exercises { padding: 0 0.75rem; }
 
 .exercise-block {
@@ -250,51 +244,25 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 .history-table th { font-size: 0.75rem; }
 .history-table td { font-size: 0.82rem; }
 
-.meal-type-cell {
-  font-weight: 600;
-  vertical-align: top;
-  background: var(--surface-2);
-}
-.exercise-cell {
-  font-weight: 600;
-  vertical-align: top;
-  max-width: 180px;
-  white-space: normal !important;
-}
+.meal-type-cell { font-weight: 600; vertical-align: top; background: var(--surface-2); }
+.exercise-cell { font-weight: 600; vertical-align: top; max-width: 180px; white-space: normal !important; }
 
-.meal-subtotal-row td {
-  background: var(--surface-2);
-  font-size: 0.78rem;
-}
-.meal-grand-total-row td {
-  background: var(--surface);
-  font-size: 0.85rem;
-  border-top: 2px solid var(--border);
-}
-.exercise-subtotal-row td {
-  background: var(--surface-2);
-  font-size: 0.78rem;
-}
+.meal-subtotal-row td { background: var(--surface-2); font-size: 0.78rem; }
+.meal-grand-total-row td { background: var(--surface); font-size: 0.85rem; border-top: 2px solid var(--border); }
+.exercise-subtotal-row td { background: var(--surface-2); font-size: 0.78rem; }
 
 .hist-workout-block {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  margin-bottom: 1rem;
-  overflow: hidden;
-  background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: 8px; margin-bottom: 1rem;
+  overflow: hidden; background: var(--surface-2);
 }
 .hist-workout-head {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 0.6rem 0.85rem;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  font-weight: 600; font-size: 0.9rem;
+  padding: 0.6rem 0.85rem; background: var(--surface);
+  border-bottom: 1px solid var(--border); font-weight: 600; font-size: 0.9rem;
 }
 .hist-workout-footer {
-  padding: 0.5rem 0.85rem;
-  font-size: 0.8rem;
-  color: var(--muted);
-  border-top: 1px solid var(--border);
+  padding: 0.5rem 0.85rem; font-size: 0.8rem;
+  color: var(--muted); border-top: 1px solid var(--border);
 }
 
 /* ============ Modals ============ */
@@ -316,6 +284,12 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
   font-weight: 600; cursor: pointer; transition: border-color 0.15s, background 0.15s;
 }
 .meal-type-btn:hover { border-color: var(--accent); background: rgba(77, 107, 254, 0.1); }
+
+/* ============ Profile modal ============ */
+.profile-form { display: flex; flex-direction: column; gap: 0.9rem; }
+.profile-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.6rem; }
+.profile-grid .field-label { margin: 0; }
+.profile-grid input { margin-top: 0.25rem; }
 
 /* ============ Food form ============ */
 .food-form { display: flex; flex-direction: column; gap: 0.9rem; }
@@ -353,9 +327,7 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 .meal-macro-grid input { margin-top: 0.25rem; }
 
 /* ============ Huawei settings ============ */
-.settings-row {
-  display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
-}
+.settings-row { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
 .settings-row .settings-label { margin-left: auto; color: var(--muted); font-size: 0.85rem; white-space: nowrap; }
 
 .switch { position: relative; display: inline-block; width: 48px; height: 26px; flex-shrink: 0; }
@@ -370,6 +342,21 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 }
 .switch input:checked + .slider { background: var(--accent); border-color: var(--accent); }
 .switch input:checked + .slider:before { transform: translateX(22px); background: #fff; }
+
+.mini-switch { position: relative; display: inline-block; width: 38px; height: 20px; }
+.mini-switch input { opacity: 0; width: 0; height: 0; }
+.mini-switch span {
+  position: absolute; cursor: pointer; inset: 0;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 999px; transition: 0.2s;
+}
+.mini-switch span:before {
+  content: ""; position: absolute; height: 14px; width: 14px;
+  left: 2px; top: 2px; background: var(--muted);
+  border-radius: 50%; transition: 0.2s;
+}
+.mini-switch input:checked + span { background: var(--accent); border-color: var(--accent); }
+.mini-switch input:checked + span:before { transform: translateX(18px); background: #fff; }
 
 /* ============ Huawei tiles ============ */
 .huawei-tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem; }
@@ -388,6 +375,59 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 
 .huawei-note { font-size: 0.8rem; color: var(--muted); margin-top: -0.25rem; }
 
+/* ============ Admin stats (improved) ============ */
+.admin-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.9rem;
+  margin-bottom: 1.5rem;
+}
+
+.admin-stat {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.25rem 1rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.admin-stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text);
+}
+
+.admin-stat-label {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.admin-stats-extra {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+}
+
+.admin-stats-extra p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.admin-stats-extra b {
+  color: var(--text);
+}
+
 /* ============ Responsive ============ */
 @media (min-width: 900px) {
   .metrics-card, .workouts-card { grid-column: span 6; }
@@ -395,6 +435,7 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 
 @media (max-width: 1100px) {
   .huawei-tiles { grid-template-columns: repeat(3, 1fr); }
+  .admin-stats-grid { grid-template-columns: repeat(3, 1fr); }
 }
 
 @media (max-width: 900px) {
@@ -403,7 +444,7 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
 }
 
 @media (max-width: 640px) {
-  .dashboard, .gym-page, .history-page { padding: 1rem; gap: 1rem; }
+  .dashboard, .gym-page, .history-page, .admin-page { padding: 1rem; gap: 1rem; }
   .topbar { padding: 0.75rem 0.9rem; flex-wrap: wrap; gap: 0.5rem; }
   .nav-tab { padding: 0.4rem 0.7rem; font-size: 0.85rem; }
   .auth-card { padding: 1.5rem; }
@@ -416,8 +457,10 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--a
   .meal-type-grid { grid-template-columns: 1fr; }
   .new-workout-row input { flex: 1 1 100%; }
   .set-row { grid-template-columns: 0.5fr 0.8fr 0.6fr 0.8fr auto; font-size: 0.75rem; }
+  .profile-grid { grid-template-columns: 1fr; }
+  .admin-stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .admin-stat-value { font-size: 1.5rem; }
 
-  /* Huawei mobile fix */
   .huawei-tiles {
     display: flex;
     flex-direction: column;

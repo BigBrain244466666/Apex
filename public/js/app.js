@@ -6,15 +6,23 @@ const App = {
   loadToken: 0,
 
   async boot() {
-    await loadAppConfig();
-    const session = await Auth.getSession();
-    this.route(session);
-    Auth.onAuthChange((session) => this.route(session));
+    try {
+      await loadAppConfig();
+      const session = await Auth.getSession();
+      this.route(session);
+      Auth.onAuthChange(function (session) {
+        App.route(session);
+      });
+    } catch (err) {
+      console.error('Boot failed:', err);
+    }
   },
 
   route(session) {
     const authView = document.getElementById('auth-view');
     const dashView = document.getElementById('dashboard-view');
+
+    if (!authView || !dashView) return;
 
     if (session) {
       authView.classList.add('hidden');
@@ -39,18 +47,18 @@ const App = {
     const errEl = document.getElementById('auth-error');
     let mode = 'login';
 
-    const setMode = (m) => {
+    function setMode(m) {
       mode = m;
       loginTab.classList.toggle('active', m === 'login');
       signupTab.classList.toggle('active', m === 'signup');
       submitBtn.textContent = m === 'login' ? 'Sign In' : 'Create Account';
       errEl.classList.add('hidden');
-    };
+    }
 
-    loginTab.addEventListener('click', () => setMode('login'));
-    signupTab.addEventListener('click', () => setMode('signup'));
+    loginTab.addEventListener('click', function () { setMode('login'); });
+    signupTab.addEventListener('click', function () { setMode('signup'); });
 
-    form.addEventListener('submit', async (e) => {
+    form.addEventListener('submit', async function (e) {
       e.preventDefault();
       const email = document.getElementById('auth-email').value.trim();
       const password = document.getElementById('auth-password').value;
@@ -78,29 +86,60 @@ const App = {
     if (!this.appBound) {
       this.appBound = true;
 
-      document.getElementById('logout-btn').addEventListener('click', async () => {
-        await Auth.signOut();
+      const logoutBtn = document.getElementById('logout-btn');
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', function () {
+          Auth.signOut();
+        });
+      }
+
+      const navMap = {
+        'nav-dashboard': 'dashboard',
+        'nav-gym': 'gym',
+        'nav-history': 'history',
+        'nav-admin': 'admin'
+      };
+
+      Object.keys(navMap).forEach(function (navId) {
+        const el = document.getElementById(navId);
+        if (el) {
+          const pageId = navMap[navId];
+          el.addEventListener('click', function () {
+            App.showPage(pageId);
+          });
+        }
       });
 
-      document.getElementById('nav-dashboard').addEventListener('click', () => this.showPage('dashboard'));
-      document.getElementById('nav-gym').addEventListener('click', () => this.showPage('gym'));
-      document.getElementById('nav-history').addEventListener('click', () => this.showPage('history'));
+      const bind = function (name, module, method) {
+        try {
+          if (module && typeof module[method] === 'function') {
+            module[method]();
+          } else {
+            console.warn('Module ' + name + ' missing');
+          }
+        } catch (err) {
+          console.warn('Failed to bind ' + name + ': ' + err.message);
+        }
+      };
 
-      MealLog.bindUI();
-      Vitals.bindForm();
-      Gym.bindUI();
-      Huawei.bindUI();
-      History.bindUI();
+      bind('Profile', typeof Profile !== 'undefined' ? Profile : null, 'bindUI');
+      bind('MealLog', typeof MealLog !== 'undefined' ? MealLog : null, 'bindUI');
+      bind('Vitals', typeof Vitals !== 'undefined' ? Vitals : null, 'bindForm');
+      bind('Gym', typeof Gym !== 'undefined' ? Gym : null, 'bindUI');
+      bind('Huawei', typeof Huawei !== 'undefined' ? Huawei : null, 'bindUI');
+      bind('History', typeof History !== 'undefined' ? History : null, 'bindUI');
+      bind('Admin', typeof Admin !== 'undefined' ? Admin : null, 'bindUI');
     }
 
     this.loadDashboardData();
   },
 
   showPage(page) {
-    const pages = ['dashboard', 'gym', 'history'];
-    for (const p of pages) {
-      const el = document.getElementById(`page-${p}`);
-      const nav = document.getElementById(`nav-${p}`);
+    const pages = ['dashboard', 'gym', 'history', 'admin'];
+    pages.forEach(function (p) {
+      const el = document.getElementById('page-' + p);
+      const nav = document.getElementById('nav-' + p);
+      if (!el || !nav) return;
       if (p === page) {
         el.classList.remove('hidden');
         nav.classList.add('active');
@@ -108,21 +147,97 @@ const App = {
         el.classList.add('hidden');
         nav.classList.remove('active');
       }
-    }
+    });
   },
 
   async loadDashboardData() {
     const token = ++this.loadToken;
+    const sb = getSupabase();
+    if (!sb) return;
 
-    await Dashboard.ensureProfile(this.userId);
-    await Huawei.init(this.userId);
+    let prof = null;
+    try {
+      const { data } = await sb.from('profiles')
+        .select('*')
+        .eq('user_id', this.userId)
+        .maybeSingle();
+      prof = data || null;
+    } catch (err) {
+      console.error('Profile fetch failed:', err.message);
+      return;
+    }
 
-    await Promise.all([
-      MealLog.load(this.userId, token),
-      Vitals.load(this.userId, token),
-      Gym.load(this.userId, token),
-      History.load(this.userId, token)
-    ]);
+    Dashboard.profile = prof;
+
+    const isAdmin = !!(prof && prof.is_admin === true);
+
+    const adminNav = document.getElementById('nav-admin');
+    const normalNavs = ['nav-dashboard', 'nav-gym', 'nav-history'];
+    const profileBtn = document.getElementById('profile-btn');
+
+    if (isAdmin) {
+      adminNav.classList.remove('hidden');
+      normalNavs.forEach(function (id) {
+        const el = document.getElementById(id);
+        if (el) el.classList.add('hidden');
+      });
+
+      if (profileBtn) profileBtn.classList.add('hidden');
+
+      this.showPage('admin');
+      try {
+        if (typeof Admin !== 'undefined') await Admin.load(this.userId, token);
+      } catch (err) {
+        console.error('Admin load failed:', err);
+      }
+      return;
+    }
+
+    adminNav.classList.add('hidden');
+    normalNavs.forEach(function (id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('hidden');
+    });
+
+    if (profileBtn) profileBtn.classList.remove('hidden');
+
+    this.showPage('dashboard');
+
+    const p = prof || {};
+
+    const toggle = function (id, condition) {
+      const el = document.getElementById(id);
+      if (el) el.classList.toggle('hidden', condition);
+    };
+
+    toggle('meal-card-section', p.meals_enabled === false);
+    toggle('huawei-tiles-section', p.huawei_enabled === false);
+    toggle('settings-card-section', p.huawei_enabled === false);
+
+    try {
+      if (typeof Huawei !== 'undefined') await Huawei.init(this.userId);
+    } catch (err) {
+      console.warn('Huawei init failed: ' + err.message);
+    }
+
+    const tasks = [];
+
+    const run = function (module, method) {
+      try {
+        if (module && typeof module[method] === 'function') {
+          tasks.push(module[method](App.userId, token));
+        }
+      } catch (err) {
+        console.warn(method + ' failed: ' + err.message);
+      }
+    };
+
+    run(typeof MealLog !== 'undefined' ? MealLog : null, 'load');
+    run(typeof Vitals !== 'undefined' ? Vitals : null, 'load');
+    run(typeof Gym !== 'undefined' ? Gym : null, 'load');
+    run(typeof History !== 'undefined' ? History : null, 'load');
+
+    await Promise.allSettled(tasks);
 
     if (token === this.loadToken) {
       this.refreshMacros();
@@ -134,17 +249,20 @@ const App = {
   },
 
   refreshMacros() {
-    Dashboard.renderMacroBars(MealLog.getTotals());
+    try {
+      Dashboard.renderMacroBars(MealLog.getTotals());
+    } catch (err) {
+      console.warn('Macro refresh failed: ' + err.message);
+    }
   }
 };
 
-// PWA service worker registration
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch((err) => {
-      console.warn('Service worker registration failed:', err);
-    });
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('/sw.js').catch(function () {});
   });
 }
 
-document.addEventListener('DOMContentLoaded', () => App.boot());
+document.addEventListener('DOMContentLoaded', function () {
+  App.boot();
+});
