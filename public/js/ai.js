@@ -1,12 +1,12 @@
-// public/js/ai.js – with scroll, resize, and formatting
+// public/js/ai.js – resize handle at TOP-LEFT
 const AI = {
   chatOpen: false,
   messagesEl: null,
   inputEl: null,
   sendBtn: null,
+  resizeData: null,
 
   init() {
-    console.log('AI.init() called');
     this.messagesEl = document.getElementById('ai-messages');
     this.inputEl = document.getElementById('ai-input');
     this.sendBtn = document.getElementById('ai-send');
@@ -14,18 +14,90 @@ const AI = {
     const panel = document.getElementById('ai-chat-panel');
     const close = document.getElementById('ai-chat-close');
 
-    if (!toggle || !panel) {
-      console.warn('AI: toggle or panel not found');
-      return;
-    }
+    if (!toggle || !panel) return;
 
-    // Make panel resizable (user can drag bottom-right corner)
-    panel.style.resize = 'both';
-    panel.style.overflow = 'auto';
-    panel.style.minWidth = '280px';
-    panel.style.minHeight = '200px';
+    // Position panel at bottom-right
+    panel.style.position = 'fixed';
+    panel.style.right = '1.5rem';
+    panel.style.bottom = '5rem';
+    panel.style.width = '380px';
     panel.style.maxWidth = '90vw';
     panel.style.maxHeight = '80vh';
+    panel.style.minWidth = '280px';
+    panel.style.minHeight = '200px';
+    panel.style.display = 'flex';
+    panel.style.flexDirection = 'column';
+    panel.style.overflow = 'hidden';
+    panel.style.resize = 'none';
+
+    // Create resize handle at TOP-LEFT
+    let handle = document.getElementById('ai-resize-handle');
+    if (!handle) {
+      handle = document.createElement('div');
+      handle.id = 'ai-resize-handle';
+      handle.style.cssText = `
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 20px;
+        height: 20px;
+        cursor: nwse-resize;
+        z-index: 10;
+        background: transparent;
+      `;
+      // Visual indicator (small corner triangle at top-left)
+      const indicator = document.createElement('div');
+      indicator.style.cssText = `
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 0;
+        height: 0;
+        border-top: 12px solid var(--border);
+        border-left: 12px solid var(--border);
+        border-right: 12px solid transparent;
+        border-bottom: 12px solid transparent;
+        pointer-events: none;
+      `;
+      handle.appendChild(indicator);
+      panel.appendChild(handle);
+    }
+
+    // Resize logic – dragging from top-left
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const startWidth = panel.offsetWidth;
+      const startHeight = panel.offsetHeight;
+      const startRight = panel.offsetRight || parseInt(panel.style.right) || 24;
+      const startBottom = panel.offsetBottom || parseInt(panel.style.bottom) || 80;
+
+      const onMouseMove = (ev) => {
+        // Moving left = increase width, moving up = increase height
+        const dx = startX - ev.clientX;
+        const dy = startY - ev.clientY;
+        let newWidth = Math.max(280, startWidth + dx);
+        let newHeight = Math.max(200, startHeight + dy);
+        // Clamp to max
+        const maxW = window.innerWidth * 0.9;
+        const maxH = window.innerHeight * 0.8;
+        newWidth = Math.min(newWidth, maxW);
+        newHeight = Math.min(newHeight, maxH);
+        panel.style.width = newWidth + 'px';
+        panel.style.height = newHeight + 'px';
+        // Adjust messages area
+        this.messagesEl.style.maxHeight = 'calc(100% - 110px)';
+      };
+
+      const onMouseUp = () => {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+      };
+
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    });
 
     toggle.addEventListener('click', () => {
       panel.classList.toggle('hidden');
@@ -42,8 +114,6 @@ const AI = {
     this.inputEl?.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') this.sendQuestion();
     });
-
-    console.log('AI: ready');
   },
 
   async sendQuestion() {
@@ -76,7 +146,6 @@ const AI = {
     div.innerHTML = `<strong>${sender}:</strong> ${text}`;
     if (isTemp) div.dataset.temp = 'true';
     this.messagesEl?.appendChild(div);
-    // Scroll to bottom after adding message
     this.scrollToBottom();
     return div;
   },
@@ -132,16 +201,15 @@ const AI = {
     const data = {};
     for (const table of tables) {
       try {
-        const { data: rows } = await sb.from(table).select('*').eq('user_id', userId);
-        data[table] = rows || [];
-      } catch (e) {
-        // If table doesn't have user_id or fails, try to fetch all (for friendships, etc.)
         if (table === 'friendships') {
           const { data: rows } = await sb.from(table).select('*').or(`requester_id.eq.${userId},addressee_id.eq.${userId}`);
           data[table] = rows || [];
         } else {
-          data[table] = [];
+          const { data: rows } = await sb.from(table).select('*').eq('user_id', userId);
+          data[table] = rows || [];
         }
+      } catch (e) {
+        data[table] = [];
       }
     }
     return data;
@@ -169,10 +237,11 @@ const AI = {
   }
 };
 
-console.log('AI script loaded');
-document.addEventListener('DOMContentLoaded', () => {
-  if (typeof AI !== 'undefined' && AI.init) {
-    console.log('AI: auto-init');
-    AI.init();
-  }
-});
+// Auto‑init
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    if (typeof AI !== 'undefined' && AI.init) AI.init();
+  });
+} else {
+  if (typeof AI !== 'undefined' && AI.init) AI.init();
+}

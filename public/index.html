@@ -395,15 +395,15 @@
     💬 Ask AI
   </button>
 
-  <div id="ai-chat-panel" class="hidden" style="position:fixed; bottom:5rem; right:1.5rem; width:380px; max-width:90vw; max-height:70vh; background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.5); z-index:1000; display:flex; flex-direction:column; overflow:hidden;">
-    <div style="padding:0.8rem 1rem; background:var(--surface-2); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+  <div id="ai-chat-panel" class="hidden" style="position:fixed; bottom:5rem; right:1.5rem; width:380px; max-width:90vw; background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.5); z-index:1000; display:flex; flex-direction:column; overflow:hidden; resize:both; min-width:280px; min-height:200px; max-height:80vh;">
+    <div style="padding:0.8rem 1rem; background:var(--surface-2); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
       <span style="font-weight:600;">🤖 Apex Coach</span>
       <button id="ai-chat-close" class="icon-btn">✕</button>
     </div>
     <div id="ai-messages" style="flex:1; overflow-y:auto; padding:1rem; min-height:200px; max-height:40vh;">
       <p class="muted" style="text-align:center;">Ask me anything about your fitness & nutrition.</p>
     </div>
-    <div style="padding:0.8rem; border-top:1px solid var(--border); display:flex; gap:0.5rem;">
+    <div style="padding:0.8rem; border-top:1px solid var(--border); display:flex; gap:0.5rem; flex-shrink:0;">
       <input id="ai-input" type="text" placeholder="Type your question..." style="flex:1;" />
       <button id="ai-send" class="btn btn-primary">Send</button>
     </div>

@@ -1,4 +1,4 @@
-/* Friends – fixed queries, dropdown below input, scroll fix */
+/* Friends – final version with correct queries, dropdown below input */
 
 const Friends = {
   bound: false,
@@ -115,7 +115,7 @@ const Friends = {
     const sb = getSupabase();
     if (!sb) return;
 
-    // Fix: single .or() with all conditions
+    // *** FIX: single .or() with both conditions ***
     const res = await sb.from('friendships')
       .select('*')
       .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`);
@@ -163,6 +163,7 @@ const Friends = {
     const targetId = found.data;
     if (targetId === userId) return alert("You can't friend yourself.");
 
+    // Check existing with combined OR
     const existing = await sb.from('friendships')
       .select('status')
       .or(`requester_id.eq.${userId},addressee_id.eq.${userId},requester_id.eq.${targetId},addressee_id.eq.${targetId}`);
@@ -209,7 +210,6 @@ const Friends = {
     const sb = getSupabase();
     const userId = App.userId;
 
-    // Use RPC that bypasses RLS
     const { data, error } = await sb.rpc('delete_friendship', {
       user1: userId,
       user2: friendId
@@ -291,9 +291,7 @@ const Friends = {
   attachEvents() {
     document.querySelectorAll('.remove-friend').forEach(btn => {
       btn.removeEventListener('click', this._removeHandler);
-      this._removeHandler = () => {
-        this.removeFriend(btn.dataset.fid);
-      };
+      this._removeHandler = () => this.removeFriend(btn.dataset.fid);
       btn.addEventListener('click', this._removeHandler);
     });
     document.querySelectorAll('.accept-request').forEach(btn => {
