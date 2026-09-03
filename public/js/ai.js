@@ -1,4 +1,4 @@
-// public/js/ai.js – final with scroll to user message + better formatting
+// public/js/ai.js – with message separators
 const AI = {
   chatOpen: false,
   messagesEl: null,
@@ -15,7 +15,6 @@ const AI = {
 
     if (!toggle || !panel) return;
 
-    // Panel positioning (bottom-right)
     panel.style.position = 'fixed';
     panel.style.right = '1.5rem';
     panel.style.bottom = '5rem';
@@ -61,7 +60,6 @@ const AI = {
       panel.appendChild(handle);
     }
 
-    // Resize drag logic
     handle.addEventListener('mousedown', (e) => {
       e.preventDefault();
       const startX = e.clientX;
@@ -114,8 +112,20 @@ const AI = {
     if (!query) return;
     this.inputEl.value = '';
 
+    // Add separator before the new exchange (except for the first message)
+    if (this.messagesEl && this.messagesEl.children.length > 1) {
+      const separator = document.createElement('hr');
+      separator.style.cssText = `
+        border: none;
+        border-top: 1px solid var(--border);
+        margin: 0.8rem 0;
+        opacity: 0.4;
+      `;
+      this.messagesEl.appendChild(separator);
+    }
+
     // Add user message and scroll to it
-    const userMsg = this.addMessage('You', query);
+    const userMsg = this.addMessage('You', query, false, 'user');
     this.scrollToElement(userMsg);
 
     const thinkingId = this.addMessage('Coach', '⏳ Thinking...', true);
@@ -135,21 +145,42 @@ const AI = {
     }
   },
 
-  addMessage(sender, text, isTemp = false) {
+  addMessage(sender, text, isTemp = false, type = '') {
     const div = document.createElement('div');
     div.style.marginBottom = '0.6rem';
     div.style.overflowWrap = 'break-word';
     div.style.lineHeight = '1.5';
+
+    // Style user messages differently
+    if (type === 'user') {
+      div.style.background = 'var(--surface-2)';
+      div.style.padding = '0.4rem 0.8rem';
+      div.style.borderRadius = '8px';
+      div.style.border = '1px solid var(--border)';
+      div.style.alignSelf = 'flex-end';
+      div.style.maxWidth = '85%';
+    } else {
+      div.style.padding = '0.2rem 0';
+    }
+
     div.innerHTML = `<strong>${sender}:</strong> ${text}`;
     if (isTemp) div.dataset.temp = 'true';
-    this.messagesEl?.appendChild(div);
+
+    // Set flex container to align messages properly
+    if (!this.messagesEl) return div;
+    this.messagesEl.appendChild(div);
     return div;
   },
 
   replaceMessage(element, sender, text) {
     element.innerHTML = `<strong>${sender}:</strong> ${text}`;
     element.dataset.temp = 'false';
-    // Scroll to the AI message so user can read it
+    // Remove any special styling for coach messages
+    element.style.background = 'transparent';
+    element.style.padding = '0.2rem 0';
+    element.style.border = 'none';
+    element.style.alignSelf = 'auto';
+    element.style.maxWidth = '100%';
     this.scrollToElement(element);
   },
 
@@ -174,7 +205,7 @@ const AI = {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
 
-    // Headers with proper styling
+    // Headers
     html = html.replace(/^### (.*$)/gm, '<h3 style="margin:0.5rem 0 0.3rem; font-size:1.05rem;">$1</h3>');
     html = html.replace(/^## (.*$)/gm, '<h2 style="margin:0.6rem 0 0.4rem; font-size:1.2rem;">$1</h2>');
     html = html.replace(/^# (.*$)/gm, '<h1 style="margin:0.7rem 0 0.4rem; font-size:1.35rem;">$1</h1>');
@@ -183,7 +214,7 @@ const AI = {
     html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
     html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
 
-    // Code blocks with better styling
+    // Code blocks
     html = html.replace(/```([\s\S]*?)```/g, (match, code) => {
       const lines = code.trim().split('\n');
       const lang = lines.length > 1 && lines[0].match(/^[a-zA-Z]+$/)?.[0] || '';
@@ -206,7 +237,7 @@ const AI = {
       return `<ol style="margin:0.4rem 0; padding-left:1.5rem; list-style-type:decimal;">${match}</ol>`;
     });
 
-    // Tables (basic markdown tables)
+    // Tables
     html = html.replace(/\|(.+)\|/g, (match) => {
       const cells = match.split('|').filter(c => c.trim());
       const isHeader = cells.some(c => c.includes('---'));
@@ -214,7 +245,6 @@ const AI = {
       const row = cells.map(c => `<td style="padding:0.3rem 0.6rem; border:1px solid var(--border);">${c.trim()}</td>`).join('');
       return `<tr>${row}</tr>`;
     });
-    // Wrap table rows in a table
     html = html.replace(/(<tr>.*<\/tr>\s*)+/g, (match) => {
       return `<table style="width:100%; border-collapse:collapse; margin:0.5rem 0; font-size:0.9rem;">${match}</table>`;
     });
@@ -225,11 +255,10 @@ const AI = {
     // Blockquotes
     html = html.replace(/^&gt; (.*$)/gm, '<blockquote style="border-left:3px solid var(--accent); padding:0.3rem 0 0.3rem 0.8rem; margin:0.4rem 0; background:var(--surface-2); border-radius:0 4px 4px 0;">$1</blockquote>');
 
-    // Line breaks (consecutive newlines become paragraph breaks)
+    // Paragraph handling
     html = html.replace(/\n{2,}/g, '</p><p style="margin:0.4rem 0;">');
     html = html.replace(/\n/g, '<br>');
 
-    // Wrap in paragraph if not already wrapped
     if (!html.startsWith('<')) {
       html = `<p style="margin:0.4rem 0;">${html}</p>`;
     }
