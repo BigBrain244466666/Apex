@@ -1,4 +1,4 @@
-// public/js/ai.js – debug with console logs and thinking message
+// public/js/ai.js – with scroll, resize, and formatting
 const AI = {
   chatOpen: false,
   messagesEl: null,
@@ -14,22 +14,26 @@ const AI = {
     const panel = document.getElementById('ai-chat-panel');
     const close = document.getElementById('ai-chat-close');
 
-    console.log('AI: elements found', { toggle, panel, close, messages: this.messagesEl, input: this.inputEl, send: this.sendBtn });
-
     if (!toggle || !panel) {
       console.warn('AI: toggle or panel not found');
       return;
     }
 
+    // Make panel resizable (user can drag bottom-right corner)
+    panel.style.resize = 'both';
+    panel.style.overflow = 'auto';
+    panel.style.minWidth = '280px';
+    panel.style.minHeight = '200px';
+    panel.style.maxWidth = '90vw';
+    panel.style.maxHeight = '80vh';
+
     toggle.addEventListener('click', () => {
-      console.log('AI: toggle clicked');
       panel.classList.toggle('hidden');
       this.chatOpen = !panel.classList.contains('hidden');
       if (this.chatOpen) this.inputEl?.focus();
     });
 
     close?.addEventListener('click', () => {
-      console.log('AI: close clicked');
       panel.classList.add('hidden');
       this.chatOpen = false;
     });
@@ -45,22 +49,16 @@ const AI = {
   async sendQuestion() {
     const query = this.inputEl?.value.trim();
     if (!query) return;
-    console.log('AI: sending question', query);
     this.inputEl.value = '';
     this.addMessage('You', query);
 
-    // Show thinking message
     const thinkingId = this.addMessage('Coach', '⏳ Thinking...', true);
-    console.log('AI: thinking message added');
 
     try {
       const data = await this.getFullUserData();
-      console.log('AI: data fetched', Object.keys(data));
       const reply = await this.callAI(query, data);
-      console.log('AI: reply received', reply?.slice(0, 100));
       this.replaceMessage(thinkingId, 'Coach', this.formatMarkdown(reply));
     } catch (err) {
-      console.error('AI: error', err);
       let errorMsg = '❌ ' + err.message;
       if (err.message.includes('fetch') || err.message.includes('NetworkError')) {
         errorMsg = '❌ Cannot connect to AI server. Make sure you are online and the backend is deployed.';
@@ -78,14 +76,21 @@ const AI = {
     div.innerHTML = `<strong>${sender}:</strong> ${text}`;
     if (isTemp) div.dataset.temp = 'true';
     this.messagesEl?.appendChild(div);
-    this.messagesEl?.scrollTo(0, this.messagesEl.scrollHeight);
+    // Scroll to bottom after adding message
+    this.scrollToBottom();
     return div;
   },
 
   replaceMessage(element, sender, text) {
     element.innerHTML = `<strong>${sender}:</strong> ${text}`;
     element.dataset.temp = 'false';
-    this.messagesEl?.scrollTo(0, this.messagesEl.scrollHeight);
+    this.scrollToBottom();
+  },
+
+  scrollToBottom() {
+    if (this.messagesEl) {
+      this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+    }
   },
 
   formatMarkdown(text) {
@@ -126,8 +131,18 @@ const AI = {
     ];
     const data = {};
     for (const table of tables) {
-      const { data: rows } = await sb.from(table).select('*').eq('user_id', userId);
-      data[table] = rows || [];
+      try {
+        const { data: rows } = await sb.from(table).select('*').eq('user_id', userId);
+        data[table] = rows || [];
+      } catch (e) {
+        // If table doesn't have user_id or fails, try to fetch all (for friendships, etc.)
+        if (table === 'friendships') {
+          const { data: rows } = await sb.from(table).select('*').or(`requester_id.eq.${userId},addressee_id.eq.${userId}`);
+          data[table] = rows || [];
+        } else {
+          data[table] = [];
+        }
+      }
     }
     return data;
   },
@@ -138,7 +153,6 @@ const AI = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query, userData }),
     });
-
     if (!response.ok) {
       let errorMsg = `Server error (${response.status})`;
       try {
@@ -149,7 +163,6 @@ const AI = {
       }
       throw new Error(errorMsg);
     }
-
     const json = await response.json();
     if (json.error) throw new Error(json.error);
     return json.reply;
@@ -157,7 +170,6 @@ const AI = {
 };
 
 console.log('AI script loaded');
-// Auto-init after DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
   if (typeof AI !== 'undefined' && AI.init) {
     console.log('AI: auto-init');

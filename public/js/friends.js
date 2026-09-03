@@ -1,4 +1,4 @@
-/* Friends – with RPC delete and proper search */
+/* Friends – fixed queries, dropdown below input, scroll fix */
 
 const Friends = {
   bound: false,
@@ -46,22 +46,15 @@ const Friends = {
 
   async searchUsers(query) {
     const sb = getSupabase();
-    // Try profiles.email first
     let { data, error } = await sb
       .from('profiles')
       .select('user_id, email, display_name')
       .ilike('email', `%${query}%`)
       .limit(5);
 
-    // If error or no results, use the RPC fallback
     if (error || !data || data.length === 0) {
       const { data: rpcData, error: rpcError } = await sb.rpc('search_users_by_email', { search_term: `%${query}%` });
-      if (!rpcError && rpcData) {
-        data = rpcData;
-      } else {
-        console.error('Search fallback error:', rpcError);
-        data = [];
-      }
+      if (!rpcError && rpcData) data = rpcData;
     }
 
     this.allUsers = data || [];
@@ -77,7 +70,7 @@ const Friends = {
       container.id = 'email-autocomplete';
       container.style.cssText = `
         position: absolute;
-        top: 100%;               /* place below the input */
+        top: 100%;
         left: 0;
         background: var(--surface);
         border: 1px solid var(--border);
@@ -107,8 +100,7 @@ const Friends = {
     container.querySelectorAll('.autocomplete-item').forEach(item => {
       item.addEventListener('mousedown', (e) => {
         e.preventDefault();
-        const email = item.dataset.email;
-        document.getElementById('friend-email').value = email;
+        document.getElementById('friend-email').value = item.dataset.email;
         this.hideAutocomplete();
       });
     });
@@ -120,13 +112,13 @@ const Friends = {
   },
 
   async load(userId) {
-    console.log('[Friends] load() called for userId:', userId);
     const sb = getSupabase();
     if (!sb) return;
 
+    // Fix: single .or() with all conditions
     const res = await sb.from('friendships')
       .select('*')
-      .or('requester_id.eq.' + userId + ',addressee_id.eq.' + userId);
+      .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`);
     if (res.error) return console.error('[Friends] Load error:', res.error);
 
     const rows = res.data || [];
@@ -173,8 +165,7 @@ const Friends = {
 
     const existing = await sb.from('friendships')
       .select('status')
-      .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`)
-      .or(`requester_id.eq.${targetId},addressee_id.eq.${targetId}`);
+      .or(`requester_id.eq.${userId},addressee_id.eq.${userId},requester_id.eq.${targetId},addressee_id.eq.${targetId}`);
     if (existing.data && existing.data.length) {
       const status = existing.data[0].status;
       if (status === 'accepted') return alert('Already friends.');
@@ -215,32 +206,16 @@ const Friends = {
 
   async removeFriend(friendId) {
     if (!confirm('Remove this friend?')) return;
-
     const sb = getSupabase();
     const userId = App.userId;
 
-    console.log('[Friends] Removing friendship between', userId, 'and', friendId);
-
-    // Use the RPC that bypasses RLS
+    // Use RPC that bypasses RLS
     const { data, error } = await sb.rpc('delete_friendship', {
       user1: userId,
       user2: friendId
     });
-
-    console.log('[Friends] delete_friendship result:', { data, error });
-
-    if (error) {
-      console.error('[Friends] RPC error:', error);
-      alert('Failed to remove friend: ' + error.message);
-      return;
-    }
-
-    if (!data) {
-      alert('Friendship not found or already removed.');
-      return;
-    }
-
-    // Reload the list
+    if (error) return alert('Failed: ' + error.message);
+    if (!data) return alert('Friendship not found or already removed.');
     await this.load(userId);
   },
 
@@ -317,36 +292,23 @@ const Friends = {
     document.querySelectorAll('.remove-friend').forEach(btn => {
       btn.removeEventListener('click', this._removeHandler);
       this._removeHandler = () => {
-        console.log('[Friends] Remove friend clicked, fid:', btn.dataset.fid);
         this.removeFriend(btn.dataset.fid);
       };
       btn.addEventListener('click', this._removeHandler);
     });
-
     document.querySelectorAll('.accept-request').forEach(btn => {
       btn.removeEventListener('click', this._acceptHandler);
-      this._acceptHandler = () => {
-        console.log('[Friends] Accept clicked, id:', btn.dataset.id);
-        this.accept(btn.dataset.id);
-      };
+      this._acceptHandler = () => this.accept(btn.dataset.id);
       btn.addEventListener('click', this._acceptHandler);
     });
-
     document.querySelectorAll('.reject-request').forEach(btn => {
       btn.removeEventListener('click', this._rejectHandler);
-      this._rejectHandler = () => {
-        console.log('[Friends] Reject clicked, id:', btn.dataset.id);
-        this.reject(btn.dataset.id);
-      };
+      this._rejectHandler = () => this.reject(btn.dataset.id);
       btn.addEventListener('click', this._rejectHandler);
     });
-
     document.querySelectorAll('.cancel-request').forEach(btn => {
       btn.removeEventListener('click', this._cancelHandler);
-      this._cancelHandler = () => {
-        console.log('[Friends] Cancel clicked, id:', btn.dataset.id);
-        this.cancelRequest(btn.dataset.id);
-      };
+      this._cancelHandler = () => this.cancelRequest(btn.dataset.id);
       btn.addEventListener('click', this._cancelHandler);
     });
   },
@@ -360,7 +322,6 @@ const Friends = {
 
     const sb = getSupabase();
     const name = this.getFriendName(friendId);
-
     const prRes = await sb.from('personal_records').select('*').eq('user_id', friendId).order('weight', { ascending: false });
     const vitRes = await sb.from('vitals').select('*').eq('user_id', friendId).order('log_date', { ascending: false }).limit(1);
 
