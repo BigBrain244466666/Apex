@@ -21,18 +21,23 @@ const Huawei = {
     const toggle = document.getElementById('huawei-toggle');
     const connectBtn = document.getElementById('huawei-connect-btn');
 
-    toggle.addEventListener('change', async () => {
-      this.enabled = toggle.checked;
-      this.applyVisibility();
+    // ----- FIX: only add listener if button exists -----
+    if (connectBtn) {
+      connectBtn.addEventListener('click', () => this.connect());
+    }
 
-      const sb = getSupabase();
-      const userId = (await sb.auth.getUser()).data.user.id;
-      await sb.from('profiles').update({ huawei_enabled: this.enabled }).eq('user_id', userId);
+    if (toggle) {
+      toggle.addEventListener('change', async () => {
+        this.enabled = toggle.checked;
+        this.applyVisibility();
 
-      if (this.enabled) this.refresh();
-    });
+        const sb = getSupabase();
+        const userId = (await sb.auth.getUser()).data.user.id;
+        await sb.from('profiles').update({ huawei_enabled: this.enabled }).eq('user_id', userId);
 
-    connectBtn.addEventListener('click', () => this.connect());
+        if (this.enabled) this.refresh();
+      });
+    }
   },
 
   async init(userId) {
@@ -46,7 +51,7 @@ const Huawei = {
     this.connected = data?.huawei_connected ?? false;
 
     const toggle = document.getElementById('huawei-toggle');
-    toggle.checked = this.enabled;
+    if (toggle) toggle.checked = this.enabled;
     this.applyVisibility();
 
     this.updateStatusBadge();

@@ -10,13 +10,15 @@
   <meta name="apple-mobile-web-app-title" content="Apex Recomp" />
   <title>Apex Recomp & Health Tracker</title>
 
-  <link rel="icon" type="image/svg+xml" href="/icons/icon.png" />
-  <link rel="apple-touch-icon" href="/icons/icon.png" />
+  <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+  <link rel="apple-touch-icon" href="/icons/icon.svg" />
   <link rel="manifest" href="/manifest.json" />
   <link rel="stylesheet" href="/css/styles.css" />
   <link rel="stylesheet" href="/css/features.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Quagga for barcode scanning -->
+  <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
 
   <style id="aura-loader-styles">
     #aura-loader{position:fixed;inset:0;z-index:9999;background:#0d1117;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2rem;transition:opacity .6s ease,visibility .6s ease;overflow:hidden}
@@ -45,6 +47,7 @@
 </head>
 <body>
 
+  <!-- Loading Screen -->
   <div id="aura-loader">
     <div class="aura-orb">
       <div class="aura-ring"></div><div class="aura-ring"></div><div class="aura-ring"></div><div class="aura-ring"></div>
@@ -56,6 +59,7 @@
     <div class="aura-progress"><div class="aura-progress-fill"></div></div>
   </div>
 
+  <!-- Auth View -->
   <div id="auth-view" class="view hidden">
     <div class="auth-card">
       <h1 class="app-logo">Apex<span>Recomp</span></h1>
@@ -73,6 +77,7 @@
     </div>
   </div>
 
+  <!-- Dashboard View -->
   <div id="dashboard-view" class="view hidden">
     <header class="topbar">
       <div class="topbar-brand">Apex<span>Recomp</span></div>
@@ -306,7 +311,7 @@
         <h2 class="card-title">Users</h2>
         <div class="table-wrap">
           <table class="data-table">
-            <thead><tr><th>Email</th><th>Weight</th><th>Meals</th><th>Gym</th><th>History</th><th>Huawei</th><th></th></tr></thead>
+            <thead><tr><th>Name</th><th>Weight</th><th>Meals</th><th>Gym</th><th>History</th><th>Huawei</th><th></th></tr></thead>
             <tbody id="admin-users-tbody"></tbody>
           </table>
         </div>
@@ -314,6 +319,7 @@
     </main>
   </div>
 
+  <!-- Profile Modal -->
   <div id="profile-modal" class="modal hidden">
     <div class="modal-backdrop" data-close-modal="profile-modal"></div>
     <div class="modal-card">
@@ -349,6 +355,7 @@
     </div>
   </div>
 
+  <!-- Meal Type Modal -->
   <div id="meal-type-modal" class="modal hidden">
     <div class="modal-backdrop" data-close-modal="meal-type-modal"></div>
     <div class="modal-card modal-small">
@@ -361,12 +368,13 @@
     </div>
   </div>
 
+  <!-- Food Modal -->
   <div id="food-modal" class="modal hidden">
     <div class="modal-backdrop" data-close-modal="food-modal"></div>
     <div class="modal-card">
       <div class="modal-head"><h3>Add Food</h3><button class="icon-btn" data-close-modal="food-modal">✕</button></div>
       <form id="food-form" class="food-form">
-        <div class="food-search-row" style="display:flex; gap:0.5rem; align-items:center;">
+        <div style="display:flex; gap:0.5rem; align-items:center;">
           <input id="food-search" type="text" placeholder="Search food…" style="flex:1;" />
           <button id="scan-barcode-btn" class="btn btn-outline" type="button">📷 Scan</button>
         </div>
@@ -382,11 +390,30 @@
     </div>
   </div>
 
+  <!-- AI Chat Button & Panel -->
+  <button id="ai-chat-toggle" class="btn btn-primary" style="position:fixed; bottom:2rem; right:2rem; border-radius:999px; padding:0.75rem 1.2rem; z-index:999;">
+    💬 Ask AI
+  </button>
+
+  <div id="ai-chat-panel" class="hidden" style="position:fixed; bottom:5rem; right:1.5rem; width:380px; max-width:90vw; max-height:70vh; background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.5); z-index:1000; display:flex; flex-direction:column; overflow:hidden;">
+    <div style="padding:0.8rem 1rem; background:var(--surface-2); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+      <span style="font-weight:600;">🤖 Apex Coach</span>
+      <button id="ai-chat-close" class="icon-btn">✕</button>
+    </div>
+    <div id="ai-messages" style="flex:1; overflow-y:auto; padding:1rem; min-height:200px; max-height:40vh;">
+      <p class="muted" style="text-align:center;">Ask me anything about your fitness & nutrition.</p>
+    </div>
+    <div style="padding:0.8rem; border-top:1px solid var(--border); display:flex; gap:0.5rem;">
+      <input id="ai-input" type="text" placeholder="Type your question..." style="flex:1;" />
+      <button id="ai-send" class="btn btn-primary">Send</button>
+    </div>
+  </div>
+
+  <!-- Scripts -->
   <script src="/js/config.js"></script>
   <script src="/js/api.js"></script>
   <script src="/js/auth.js"></script>
   <script src="/js/charts.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
   <script src="/js/dashboard.js"></script>
   <script src="/js/profile.js"></script>
   <script src="/js/water.js"></script>
@@ -401,6 +428,7 @@
   <script src="/js/export.js"></script>
   <script src="/js/notifications.js"></script>
   <script src="/js/admin.js"></script>
+  <script src="/js/ai.js"></script>
   <script src="/js/app.js"></script>
 </body>
 </html>

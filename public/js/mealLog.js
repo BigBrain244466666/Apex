@@ -405,7 +405,7 @@ const MealLog = {
   },
 
   // ---------- BARCODE SCANNER ----------
-  async scanBarcode() {
+    async scanBarcode() {
     if (this.scannerActive) return;
     this.scannerActive = true;
 
@@ -460,6 +460,8 @@ const MealLog = {
       locate: true
     };
 
+    let detected = false; // prevent multiple detections
+
     Quagga.init(config, (err) => {
       if (err) {
         console.error('Quagga init error:', err);
@@ -473,10 +475,15 @@ const MealLog = {
 
     // Handle detection
     Quagga.onDetected(async (result) => {
+      if (detected) return; // ignore subsequent detections
+      detected = true;
       const code = result.codeResult.code;
+      console.log('Barcode detected:', code);
+      // Stop scanner and remove overlay immediately
       Quagga.stop();
       this.scannerActive = false;
       overlay.remove();
+      // Now look up the barcode (this may show an alert)
       await this.lookupBarcode(code);
     });
 
