@@ -9,7 +9,6 @@ const MealLog = {
   bindUI() {
     if (this.bound) return;
     this.bound = true;
-    const self = this;
 
     document.getElementById('add-meal-btn')?.addEventListener('click', () => this.openModal('meal-type-modal'));
     document.querySelectorAll('.meal-type-btn').forEach(btn => btn.addEventListener('click', () => this.createMeal(btn.dataset.type)));
@@ -34,15 +33,15 @@ const MealLog = {
     document.getElementById('copy-meals-btn')?.addEventListener('click', () => this.copyYesterday());
     this.loadFavorites();
 
+    // ---- Ensure UI elements ----
     this.ensureGramsInput();
     this.ensureDecimalInputs();
+    this.ensureTimePicker();
 
     const gramsInput = document.getElementById('food-grams');
     if (gramsInput) {
       gramsInput.addEventListener('input', () => this.scaleFromGrams());
     }
-
-    this.ensureTimePicker();
 
     // ---- Barcode scanner button ----
     const scanBtn = document.getElementById('scan-barcode-btn');
@@ -51,151 +50,53 @@ const MealLog = {
     }
   },
 
-  // ---------- BARCODE SCANNER ----------
-  async scanBarcode() {
-    if (this.scannerActive) return;
-    this.scannerActive = true;
-
-    // Check for camera permission first
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-      stream.getTracks().forEach(track => track.stop()); // release for Quagga
-    } catch (err) {
-      alert('Camera access denied or not available.');
-      this.scannerActive = false;
-      return;
-    }
-
-    // Create overlay for scanner
-    const overlay = document.createElement('div');
-    overlay.id = 'scanner-overlay';
-    overlay.style.cssText = `
-      position: fixed; inset: 0; z-index: 10000;
-      background: #000; display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
+  // ---------- HELPER: GRAMS INPUT ----------
+  ensureGramsInput() {
+    const form = document.getElementById('food-form');
+    if (!form) return;
+    if (document.getElementById('food-grams')) return;
+    const macroGrid = form.querySelector('.meal-macro-grid');
+    const wrapper = document.createElement('div');
+    wrapper.className = 'field-label';
+    wrapper.innerHTML = `
+      <label class="field-label">Serving (grams)
+        <input id="food-grams" type="number" step="1" min="1" value="100" />
+      </label>
     `;
-    overlay.innerHTML = `
-      <div id="scanner-container" style="width:100%; max-width:500px; height:400px; background:#000; position:relative;">
-        <video id="scanner-video" style="width:100%; height:100%; object-fit:cover;"></video>
-        <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-                    width:80%; height:60%; border:2px solid #4d6bfe; border-radius:12px; pointer-events:none;"></div>
-      </div>
-      <button id="scanner-close" class="btn btn-ghost" style="margin-top:1rem; color:#fff;">Cancel</button>
-      <p style="color:#fff; margin-top:0.5rem;">Point camera at barcode</p>
-    `;
-    document.body.appendChild(overlay);
-
-    // Quagga config
-    const config = {
-      inputStream: {
-        type: 'LiveStream',
-        target: document.querySelector('#scanner-container'),
-        constraints: {
-          facingMode: 'environment',
-          width: { ideal: 640 },
-          height: { ideal: 480 }
-        }
-      },
-      locator: {
-        patchSize: 'medium',
-        halfSample: true
-      },
-      numOfWorkers: 1,
-      decoder: {
-        readers: ['ean_reader', 'ean_8_reader', 'code_128_reader', 'code_39_reader', 'upc_reader']
-      },
-      locate: true
-    };
-
-    Quagga.init(config, (err) => {
-      if (err) {
-        console.error('Quagga init error:', err);
-        alert('Could not start scanner.');
-        this.scannerActive = false;
-        overlay.remove();
-        return;
-      }
-      Quagga.start();
-    });
-
-    // Handle barcode detection
-    Quagga.onDetected(async (result) => {
-      const code = result.codeResult.code;
-      Quagga.stop();
-      this.scannerActive = false;
-      overlay.remove();
-      await this.lookupBarcode(code);
-    });
-
-    // Close button
-    overlay.querySelector('#scanner-close').addEventListener('click', () => {
-      Quagga.stop();
-      this.scannerActive = false;
-      overlay.remove();
-    });
-
-    // Cleanup on modal close (unlikely but safe)
-    const cleanup = () => {
-      if (this.scannerActive) {
-        Quagga.stop();
-        this.scannerActive = false;
-      }
-      overlay.remove();
-    };
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) cleanup();
-    });
-  },
-
-  async lookupBarcode(code) {
-    try {
-      const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${code}.json`);
-      if (!res.ok) throw new Error('API error');
-      const data = await res.json();
-      if (data.status !== 1 || !data.product) {
-        alert('Product not found in Open Food Facts.');
-        return;
-      }
-
-      const product = data.product;
-      const name = product.product_name || product.generic_name || 'Unknown product';
-      const nutriments = product.nutriments || {};
-
-      // Extract per 100g values (try various keys)
-      const per100g = {
-        calories: nutriments['energy-kcal_100g'] || nutriments.energy_100g || null,
-        protein: nutriments.proteins_100g ?? null,
-        fat: nutriments.fat_100g ?? null,
-        carbs: nutriments.carbohydrates_100g ?? null
-      };
-
-      // Fill the form
-      document.getElementById('food-search').value = name;
-      this.selectedFood = { per100g };
-      const gramsInput = document.getElementById('food-grams');
-      if (gramsInput) gramsInput.value = 100;
-      this.updateMacroFields(per100g, 100);
-    } catch (err) {
-      alert('Failed to look up barcode: ' + err.message);
+    if (macroGrid) {
+      form.insertBefore(wrapper, macroGrid);
+    } else {
+      form.prepend(wrapper);
     }
   },
 
+  // ---------- HELPER: DECIMAL INPUTS ----------
+  ensureDecimalInputs() {
+    ['food-cal', 'food-protein', 'food-fat', 'food-carbs'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.setAttribute('step', '0.01');
+        el.setAttribute('min', '0');
+      }
+    });
+  },
+
+  // ---------- HELPER: MEAL TIME PICKER ----------
   ensureTimePicker() {
-    // Add time input to the meal type modal if not present
     const modal = document.getElementById('meal-type-modal');
     if (!modal) return;
+    if (document.getElementById('meal-time-input')) return;
     const grid = modal.querySelector('.meal-type-grid');
     if (!grid) return;
-    // Check if time input already exists
-    if (document.getElementById('meal-time-input')) return;
-
     const wrapper = document.createElement('div');
     wrapper.className = 'meal-time-wrapper';
     wrapper.style.marginTop = '1rem';
     wrapper.style.textAlign = 'center';
+    const now = new Date();
+    const defaultTime = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
     wrapper.innerHTML = `
       <label class="field-label" style="text-align:center;">Meal Time
-        <input id="meal-time-input" type="time" value="${new Date().toTimeString().slice(0,5)}" />
+        <input id="meal-time-input" type="time" value="${defaultTime}" />
       </label>
     `;
     grid.parentNode.insertBefore(wrapper, grid.nextSibling);
@@ -203,13 +104,15 @@ const MealLog = {
 
   getMealTime() {
     const input = document.getElementById('meal-time-input');
-    return input ? input.value : new Date().toTimeString().slice(0,5);
+    return input ? input.value : new Date().toTimeString().slice(0, 5);
   },
 
+  // ---------- MODAL HELPERS ----------
   openModal(id) { document.getElementById(id)?.classList.remove('hidden'); },
   closeModal(id) { document.getElementById(id)?.classList.add('hidden'); },
   hideResults(el) { if (el) { el.classList.add('hidden'); el.innerHTML = ''; } },
 
+  // ---------- CREATE MEAL ----------
   async createMeal(mealType) {
     const sb = getSupabase();
     const userId = (await sb.auth.getUser()).data.user.id;
@@ -230,6 +133,7 @@ const MealLog = {
     this.closeModal('meal-type-modal');
   },
 
+  // ---------- SAVE FOOD FROM FORM ----------
   async saveFoodFromForm() {
     const food_name = document.getElementById('food-search').value.trim();
     const calories = Number(document.getElementById('food-cal').value) || 0;
@@ -250,13 +154,11 @@ const MealLog = {
     const meal = this.meals.find(m => m.id === this.currentMealId);
     if (meal) meal.items.push(res.data);
 
-    // Clear the search field and reset grams
-    const searchInput = document.getElementById('food-search');
-    if (searchInput) searchInput.value = '';
+    // Clear search and reset
+    document.getElementById('food-search').value = '';
     const gramsInput = document.getElementById('food-grams');
     if (gramsInput) gramsInput.value = 100;
-    const resultsEl = document.getElementById('food-results');
-    if (resultsEl) this.hideResults(resultsEl);
+    this.hideResults(document.getElementById('food-results'));
     this.selectedFood = null;
 
     this.closeModal('food-modal');
@@ -264,14 +166,12 @@ const MealLog = {
     this.updateTotals();
   },
 
+  // ---------- OPEN FOOD MODAL ----------
   openFoodModal(mealId) {
     this.currentMealId = mealId;
     this.openModal('food-modal');
-    const searchInput = document.getElementById('food-search');
-    if (searchInput) {
-      searchInput.value = '';
-      searchInput.focus();
-    }
+    document.getElementById('food-search').value = '';
+    document.getElementById('food-search').focus();
     const grams = document.getElementById('food-grams');
     if (grams) grams.value = 100;
     this.selectedFood = null;
@@ -279,10 +179,10 @@ const MealLog = {
       const el = document.getElementById(id);
       if (el) el.value = '';
     });
-    const resultsEl = document.getElementById('food-results');
-    if (resultsEl) this.hideResults(resultsEl);
+    this.hideResults(document.getElementById('food-results'));
   },
 
+  // ---------- COPY YESTERDAY ----------
   async copyYesterday() {
     const sb = getSupabase();
     const yesterday = new Date();
@@ -309,6 +209,7 @@ const MealLog = {
     this.load(App.userId, ++App.loadToken);
   },
 
+  // ---------- FAVORITES ----------
   async loadFavorites() {
     const sb = getSupabase();
     const { data } = await sb.from('favorite_foods').select('*').eq('user_id', App.userId);
@@ -328,6 +229,7 @@ const MealLog = {
     }
   },
 
+  // ---------- LOAD MEALS ----------
   async load(userId, token) {
     const sb = getSupabase();
     const now = new Date();
@@ -364,6 +266,7 @@ const MealLog = {
     this.updateTotals();
   },
 
+  // ---------- RENDER MEALS ----------
   renderMeals() {
     const container = document.getElementById('meals-container');
     if (!container) return;
@@ -397,6 +300,7 @@ const MealLog = {
     });
   },
 
+  // ---------- DELETE ----------
   async deleteMeal(id) {
     const sb = getSupabase();
     await sb.from('meals').delete().eq('id', id);
@@ -413,6 +317,7 @@ const MealLog = {
     this.updateTotals();
   },
 
+  // ---------- TOTALS ----------
   mealTotals(meal) {
     const t = { calories: 0, protein: 0, fat: 0, carbs: 0 };
     meal.items.forEach(it => {
@@ -444,6 +349,7 @@ const MealLog = {
     App.refreshMacros();
   },
 
+  // ---------- FOOD SEARCH & SELECT ----------
   renderFoodResults(hits, el) {
     if (!el) return;
     el.innerHTML = '';
@@ -496,6 +402,130 @@ const MealLog = {
     const grams = Number(gramsInput.value) || 0;
     if (grams <= 0) return;
     this.updateMacroFields(this.selectedFood.per100g, grams);
+  },
+
+  // ---------- BARCODE SCANNER ----------
+  async scanBarcode() {
+    if (this.scannerActive) return;
+    this.scannerActive = true;
+
+    // Check for camera permission
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      stream.getTracks().forEach(track => track.stop());
+    } catch (err) {
+      alert('Camera access denied or not available. Please allow camera in your browser settings.');
+      this.scannerActive = false;
+      return;
+    }
+
+    // Create overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'scanner-overlay';
+    overlay.style.cssText = `
+      position: fixed; inset: 0; z-index: 10000;
+      background: #000; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 1rem;
+    `;
+    overlay.innerHTML = `
+      <div id="scanner-container" style="width:100%; max-width:500px; height:400px; background:#000; position:relative; border-radius:12px; overflow:hidden;">
+        <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; opacity:0.3; pointer-events:none; font-size:1.2rem; text-align:center; padding:1rem;">
+          Point camera at barcode
+        </div>
+      </div>
+      <button id="scanner-close" class="btn btn-ghost" style="margin-top:1.5rem; color:#fff; background:rgba(255,255,255,0.1); padding:0.6rem 2rem; border-radius:8px;">Cancel</button>
+    `;
+    document.body.appendChild(overlay);
+
+    // Quagga config
+    const config = {
+      inputStream: {
+        type: 'LiveStream',
+        target: document.querySelector('#scanner-container'),
+        constraints: {
+          facingMode: 'environment',
+          width: { ideal: 640 },
+          height: { ideal: 480 }
+        }
+      },
+      locator: {
+        patchSize: 'medium',
+        halfSample: true
+      },
+      numOfWorkers: 1,
+      decoder: {
+        readers: ['ean_reader', 'ean_8_reader', 'code_128_reader', 'code_39_reader', 'upc_reader']
+      },
+      locate: true
+    };
+
+    Quagga.init(config, (err) => {
+      if (err) {
+        console.error('Quagga init error:', err);
+        alert('Could not start scanner. Please use a mobile device or a browser with camera support.');
+        this.scannerActive = false;
+        overlay.remove();
+        return;
+      }
+      Quagga.start();
+    });
+
+    // Handle detection
+    Quagga.onDetected(async (result) => {
+      const code = result.codeResult.code;
+      Quagga.stop();
+      this.scannerActive = false;
+      overlay.remove();
+      await this.lookupBarcode(code);
+    });
+
+    // Close button
+    overlay.querySelector('#scanner-close').addEventListener('click', () => {
+      Quagga.stop();
+      this.scannerActive = false;
+      overlay.remove();
+    });
+
+    // Cleanup on overlay click (background)
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        Quagga.stop();
+        this.scannerActive = false;
+        overlay.remove();
+      }
+    });
+  },
+
+  async lookupBarcode(code) {
+    try {
+      const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${code}.json`);
+      if (!res.ok) throw new Error('API error');
+      const data = await res.json();
+      if (data.status !== 1 || !data.product) {
+        alert('Product not found in Open Food Facts.');
+        return;
+      }
+
+      const product = data.product;
+      const name = product.product_name || product.generic_name || 'Unknown product';
+      const nutriments = product.nutriments || {};
+
+      const per100g = {
+        calories: nutriments['energy-kcal_100g'] || nutriments.energy_100g || null,
+        protein: nutriments.proteins_100g ?? null,
+        fat: nutriments.fat_100g ?? null,
+        carbs: nutriments.carbohydrates_100g ?? null
+      };
+
+      document.getElementById('food-search').value = name;
+      this.selectedFood = { per100g };
+      const gramsInput = document.getElementById('food-grams');
+      if (gramsInput) gramsInput.value = 100;
+      this.updateMacroFields(per100g, 100);
+    } catch (err) {
+      alert('Failed to look up barcode: ' + err.message);
+    }
   }
 };
 
