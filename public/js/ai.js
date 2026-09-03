@@ -1,10 +1,9 @@
-// public/js/ai.js – resize handle at TOP-LEFT
+// public/js/ai.js – final with scroll to user message + better formatting
 const AI = {
   chatOpen: false,
   messagesEl: null,
   inputEl: null,
   sendBtn: null,
-  resizeData: null,
 
   init() {
     this.messagesEl = document.getElementById('ai-messages');
@@ -16,7 +15,7 @@ const AI = {
 
     if (!toggle || !panel) return;
 
-    // Position panel at bottom-right
+    // Panel positioning (bottom-right)
     panel.style.position = 'fixed';
     panel.style.right = '1.5rem';
     panel.style.bottom = '5rem';
@@ -30,7 +29,7 @@ const AI = {
     panel.style.overflow = 'hidden';
     panel.style.resize = 'none';
 
-    // Create resize handle at TOP-LEFT
+    // Top-left resize handle
     let handle = document.getElementById('ai-resize-handle');
     if (!handle) {
       handle = document.createElement('div');
@@ -45,7 +44,6 @@ const AI = {
         z-index: 10;
         background: transparent;
       `;
-      // Visual indicator (small corner triangle at top-left)
       const indicator = document.createElement('div');
       indicator.style.cssText = `
         position: absolute;
@@ -63,30 +61,25 @@ const AI = {
       panel.appendChild(handle);
     }
 
-    // Resize logic – dragging from top-left
+    // Resize drag logic
     handle.addEventListener('mousedown', (e) => {
       e.preventDefault();
       const startX = e.clientX;
       const startY = e.clientY;
       const startWidth = panel.offsetWidth;
       const startHeight = panel.offsetHeight;
-      const startRight = panel.offsetRight || parseInt(panel.style.right) || 24;
-      const startBottom = panel.offsetBottom || parseInt(panel.style.bottom) || 80;
 
       const onMouseMove = (ev) => {
-        // Moving left = increase width, moving up = increase height
         const dx = startX - ev.clientX;
         const dy = startY - ev.clientY;
         let newWidth = Math.max(280, startWidth + dx);
         let newHeight = Math.max(200, startHeight + dy);
-        // Clamp to max
         const maxW = window.innerWidth * 0.9;
         const maxH = window.innerHeight * 0.8;
         newWidth = Math.min(newWidth, maxW);
         newHeight = Math.min(newHeight, maxH);
         panel.style.width = newWidth + 'px';
         panel.style.height = newHeight + 'px';
-        // Adjust messages area
         this.messagesEl.style.maxHeight = 'calc(100% - 110px)';
       };
 
@@ -120,7 +113,10 @@ const AI = {
     const query = this.inputEl?.value.trim();
     if (!query) return;
     this.inputEl.value = '';
-    this.addMessage('You', query);
+
+    // Add user message and scroll to it
+    const userMsg = this.addMessage('You', query);
+    this.scrollToElement(userMsg);
 
     const thinkingId = this.addMessage('Coach', '⏳ Thinking...', true);
 
@@ -143,17 +139,25 @@ const AI = {
     const div = document.createElement('div');
     div.style.marginBottom = '0.6rem';
     div.style.overflowWrap = 'break-word';
+    div.style.lineHeight = '1.5';
     div.innerHTML = `<strong>${sender}:</strong> ${text}`;
     if (isTemp) div.dataset.temp = 'true';
     this.messagesEl?.appendChild(div);
-    this.scrollToBottom();
     return div;
   },
 
   replaceMessage(element, sender, text) {
     element.innerHTML = `<strong>${sender}:</strong> ${text}`;
     element.dataset.temp = 'false';
-    this.scrollToBottom();
+    // Scroll to the AI message so user can read it
+    this.scrollToElement(element);
+  },
+
+  scrollToElement(element) {
+    if (element && this.messagesEl) {
+      const top = element.offsetTop - this.messagesEl.offsetTop - 20;
+      this.messagesEl.scrollTop = top;
+    }
   },
 
   scrollToBottom() {
@@ -164,29 +168,72 @@ const AI = {
 
   formatMarkdown(text) {
     if (!text) return '';
+
     let html = text
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
 
-    html = html.replace(/^### (.*$)/gm, '<h3>$1</h3>');
-    html = html.replace(/^## (.*$)/gm, '<h2>$1</h2>');
-    html = html.replace(/^# (.*$)/gm, '<h1>$1</h1>');
+    // Headers with proper styling
+    html = html.replace(/^### (.*$)/gm, '<h3 style="margin:0.5rem 0 0.3rem; font-size:1.05rem;">$1</h3>');
+    html = html.replace(/^## (.*$)/gm, '<h2 style="margin:0.6rem 0 0.4rem; font-size:1.2rem;">$1</h2>');
+    html = html.replace(/^# (.*$)/gm, '<h1 style="margin:0.7rem 0 0.4rem; font-size:1.35rem;">$1</h1>');
+
+    // Bold and italic
     html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
     html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+
+    // Code blocks with better styling
     html = html.replace(/```([\s\S]*?)```/g, (match, code) => {
-      return `<pre style="background:var(--surface-2); padding:0.5rem; border-radius:6px; overflow-x:auto;"><code>${code.trim()}</code></pre>`;
+      const lines = code.trim().split('\n');
+      const lang = lines.length > 1 && lines[0].match(/^[a-zA-Z]+$/)?.[0] || '';
+      const body = lang ? lines.slice(1).join('\n') : code.trim();
+      return `<pre style="background:var(--surface-2); padding:0.6rem; border-radius:6px; overflow-x:auto; margin:0.4rem 0; border-left:3px solid var(--accent);"><code style="font-family:monospace; font-size:0.85rem; white-space:pre-wrap;">${body}</code></pre>`;
     });
-    html = html.replace(/`([^`]+)`/g, '<code style="background:var(--surface-2); padding:0.1rem 0.3rem; border-radius:4px;">$1</code>');
-    html = html.replace(/^[\-\*] (.*)$/gm, '<li>$1</li>');
-    html = html.replace(/(<li>.*<\/li>\s*)+/g, (match) => {
-      return `<ul style="margin:0.5rem 0; padding-left:1.5rem;">${match}</ul>`;
+
+    // Inline code
+    html = html.replace(/`([^`]+)`/g, '<code style="background:var(--surface-2); padding:0.1rem 0.3rem; border-radius:4px; font-family:monospace;">$1</code>');
+
+    // Unordered lists
+    html = html.replace(/^[\-\*] (.*)$/gm, '<li style="margin:0.2rem 0;">$1</li>');
+    html = html.replace(/(<li.*<\/li>\s*)+/g, (match) => {
+      return `<ul style="margin:0.4rem 0; padding-left:1.5rem; list-style-type:disc;">${match}</ul>`;
     });
-    html = html.replace(/^\d+\. (.*)$/gm, '<li>$1</li>');
-    html = html.replace(/(<li>.*<\/li>\s*)+/g, (match) => {
-      return `<ol style="margin:0.5rem 0; padding-left:1.5rem;">${match}</ol>`;
+
+    // Ordered lists
+    html = html.replace(/^\d+\. (.*)$/gm, '<li style="margin:0.2rem 0;">$1</li>');
+    html = html.replace(/(<li.*<\/li>\s*)+/g, (match) => {
+      return `<ol style="margin:0.4rem 0; padding-left:1.5rem; list-style-type:decimal;">${match}</ol>`;
     });
+
+    // Tables (basic markdown tables)
+    html = html.replace(/\|(.+)\|/g, (match) => {
+      const cells = match.split('|').filter(c => c.trim());
+      const isHeader = cells.some(c => c.includes('---'));
+      if (isHeader) return '';
+      const row = cells.map(c => `<td style="padding:0.3rem 0.6rem; border:1px solid var(--border);">${c.trim()}</td>`).join('');
+      return `<tr>${row}</tr>`;
+    });
+    // Wrap table rows in a table
+    html = html.replace(/(<tr>.*<\/tr>\s*)+/g, (match) => {
+      return `<table style="width:100%; border-collapse:collapse; margin:0.5rem 0; font-size:0.9rem;">${match}</table>`;
+    });
+
+    // Horizontal rules
+    html = html.replace(/^---$/gm, '<hr style="border:1px solid var(--border); margin:0.6rem 0;" />');
+
+    // Blockquotes
+    html = html.replace(/^&gt; (.*$)/gm, '<blockquote style="border-left:3px solid var(--accent); padding:0.3rem 0 0.3rem 0.8rem; margin:0.4rem 0; background:var(--surface-2); border-radius:0 4px 4px 0;">$1</blockquote>');
+
+    // Line breaks (consecutive newlines become paragraph breaks)
+    html = html.replace(/\n{2,}/g, '</p><p style="margin:0.4rem 0;">');
     html = html.replace(/\n/g, '<br>');
+
+    // Wrap in paragraph if not already wrapped
+    if (!html.startsWith('<')) {
+      html = `<p style="margin:0.4rem 0;">${html}</p>`;
+    }
+
     return html;
   },
 
