@@ -366,7 +366,10 @@
     <div class="modal-card">
       <div class="modal-head"><h3>Add Food</h3><button class="icon-btn" data-close-modal="food-modal">✕</button></div>
       <form id="food-form" class="food-form">
-        <input id="food-search" type="text" placeholder="Search food…" />
+        <div class="food-search-row" style="display:flex; gap:0.5rem; align-items:center;">
+          <input id="food-search" type="text" placeholder="Search food…" style="flex:1;" />
+          <button id="scan-barcode-btn" class="btn btn-outline" type="button">📷 Scan</button>
+        </div>
         <div id="food-results" class="food-results hidden"></div>
         <div class="meal-macro-grid">
           <label>Calories <input id="food-cal" type="number" /></label>
@@ -383,6 +386,7 @@
   <script src="/js/api.js"></script>
   <script src="/js/auth.js"></script>
   <script src="/js/charts.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
   <script src="/js/dashboard.js"></script>
   <script src="/js/profile.js"></script>
   <script src="/js/water.js"></script>
